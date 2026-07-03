@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日志解密工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <style>
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.6s ease-out; }
+        .drag-active { border-color: #165DFF !important; background-color: rgba(22, 93, 255, 0.05) !important; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-slate-200">
+    <div id="app" class="min-h-screen"></div>
+
+    <script>
+    (function(window) {
+        var _0xA1B2 = ["2J2n49D9Ld","3K3p57E7Me","4M4r78G8Ng","5P5t82I2Qf","6R6v94K4Sh","7T7x16L6Ui","8V9z27N7Wk","9X1B39P9Ym","aZ2C4gQ1An","bY3E5iR2Bo","cX4F7kS3Cp","dW5G9mT4Dq","eV6H1oU5Er","fU7J3qV6Fs","gT8K4rW7Gt","hS9M6tX8Hp","iR1N7vY9Iq","jQ2P8xZ1Jr","kP3Q1BZ2Ks","jO4R3CY3Lr","nM5T4DX4Mt","mL6V6FW5Np","kL7W7GV6Or","jK8X8EU7Qp","iJ9Y9CT8Rs","hz1B2BS9Sn","gy2C3AR1Tp","fx3D4AQ2Uo","ew4F5ZP3Vm","dv5G6YO4Wl","cu6H7XN5Bk","bt7J8WM6Cj","as8K9VL7Di","zr9L1UK9Eh","yq1N2TJ7Fa","xp2P3SI8Gb","wo3Q4RH9Ic","vn4R5QG1Jd","um5T6PF2Ke","tl6V7OE3Lb","sk7W8ND4Mc","rj8X9MC5Na","qi9Z1LB7Ob","ph1A2KA8Pc","og2B3Jz9Qd","nf3C4Iy1Re","me4D5Hx2Sf","ld5F6Gw3Tg","kc6G7Fv4Uh","jb7H8Eu5Vi","ia8J9Dt6Wj","hz9K1Cs7Xh","gy1M2Br9Yp","fx2N3Aq1Zo","ew3P4Zp2An","dv4Q5Yo3Bm","cu5R6Xn4Cl","bt6T7Wm5Dk","as7V8Vl6Ej","zr8W9Uk7Fh","yq9X1Tj8Gg","xp1Z2Si9Ia","wo2A3Rh8Jb","vn3B4Qg9Kc","um4C5Pf6Ld","tl5D6Oe7Me","sk6F7Nd8Nf","rj7G8Mc9Og","qi8H9Lb1Pa","ph9J1Ka2Qb","og1K2Jz3Rc","nf2L3Iy4Sd","me3M4Hx5Te","ld4N5Gw6Uf","kc5P6Fv7Vg","jb6Q7Eu8Wh","ia7R8Dt9Yi","hz8S9Cs1Zj","gy9T2Br2Ak","fx1U3Aq3Bl","ew2V4Zp4Cm","dv3W5Yo5Dn","cu4X6Xn6Ek","bt5Y7Wm7Fl","as6Z8Vl8Gj","zr7A9Uk9Hh","yq8B1Tj1Ii","xp9C2Si2Jg","wo1D3Rh4Kf","vn2F4Qg5Le","um3G5Pf7Md","tl4H6Oe8Nc","sk5J7Nd9Ob","rj6K8Mc1Pa","qi7M9Lb2Qz","ph8N1Ka3Ry","og9P2Jz4Sx","nf1Q3Iy5Tw","me2R4Hx6Uv","ld3S5Gw7Vb"];
+        var _0xK3Y7 = "123456abc2345678";
+        var _0xM9N1 = "logDecryptTool";
+        var _0xT5W8 = 18000000;
+
+        function _0xFingerprint() {
+            var _0xUA = navigator.userAgent;
+            var _0xSW = screen.width + "x" + screen.height;
+            var _0xCPU = navigator.hardwareConcurrency || 4;
+            var _0xRaw = _0xUA + _0xSW + _0xCPU;
+            return CryptoJS.MD5(_0xRaw).toString();
+        }
+
+        function _0xGetUsed() {
+            var _0xDev = _0xFingerprint();
+            var _0xKey = _0xM9N1 + "_used_" + _0xDev;
+            return JSON.parse(localStorage.getItem(_0xKey) || "[]");
+        }
+
+        function _0xSaveUsed(_0xArr) {
+            var _0xDev = _0xFingerprint();
+            var _0xKey = _0xM9N1 + "_used_" + _0xDev;
+            localStorage.setItem(_0xKey, JSON.stringify(_0xArr));
+        }
+
+        function _0xDecrypt(_0xText) {
+            var _0xPattern = /##@@##([\s\S]*?)@@##@@/g;
+            var _0xResult = _0xText;
+            var _0xMatch;
+            while ((_0xMatch = _0xPattern.exec(_0xText)) !== null) {
+                var _0xCipher = _0xMatch[1].replace(/\s/g, '');
+                try {
+                    var _0xBytes = CryptoJS.AES.decrypt(_0xCipher, CryptoJS.enc.Utf8.parse(_0xK3Y7), {
+                        mode: CryptoJS.mode.ECB,
+                        padding: CryptoJS.pad.Pkcs7
+                    });
+                    var _0xDecrypted = _0xBytes.toString(CryptoJS.enc.Utf8);
+                    if (_0xDecrypted) {
+                        _0xResult = _0xResult.replace(_0xMatch[0], _0xDecrypted);
+                    }
+                } catch (_0xE) {}
+            }
+            return _0xResult;
+        }
+
+        var _0xState = {
+            loggedIn: false,
+            files: [],
+            progress: 0,
+            lastActivity: Date.now(),
+            idleTimer: null
+        };
+
+        function _0xResetIdle() {
+            _0xState.lastActivity = Date.now();
+            if (_0xState.idleTimer) clearTimeout(_0xState.idleTimer);
+            _0xState.idleTimer = setTimeout(_0xLogout, _0xT5W8);
+        }
+
+        function _0xLogout() {
+            _0xState.loggedIn = false;
+            _0xState.files = [];
+            _0xState.progress = 0;
+            if (_0xState.idleTimer) clearTimeout(_0xState.idleTimer);
+            _0xRender();
+        }
+
+        function _0xLogin(_0xPwd) {
+            var _0xUsed = _0xGetUsed();
+            var _0xDev = _0xFingerprint();
+            if (_0xUsed.includes(_0xDev + ":" + _0xPwd)) {
+                return { ok: false, msg: "密码已失效，请使用新密码" };
+            }
+            if (!_0xA1B2.includes(_0xPwd)) {
+                return { ok: false, msg: "密码错误" };
+            }
+            _0xUsed.push(_0xDev + ":" + _0xPwd);
+            _0xSaveUsed(_0xUsed);
+            _0xState.loggedIn = true;
+            _0xState.files = [];
+            _0xState.progress = 0;
+            _0xResetIdle();
+            return { ok: true };
+        }
+
+        function _0xHandleFiles(_0xFileList) {
+            Array.from(_0xFileList).forEach(function(_0xF) {
+                if (_0xF.name.endsWith(".log") || _0xF.name.endsWith(".txt")) {
+                    _0xState.files.push({
+                        id: Date.now() + Math.random(),
+                        name: _0xF.name,
+                        file: _0xF,
+                        decryptStatus: "pending",
+                        exportStatus: "pending",
+                        content: ""
+                    });
+                }
+            });
+            _0xResetIdle();
+            _0xRender();
+        }
+
+        async function _0xDecryptAll() {
+            _0xResetIdle();
+            _0xState.progress = 0;
+            for (var i = 0; i < _0xState.files.length; i++) {
+                var _0xF = _0xState.files[i];
+                if (_0xF.decryptStatus === "pending") {
+                    _0xF.decryptStatus = "decrypting";
+                    _0xRender();
+                    try {
+                        var _0xText = await _0xF.file.text();
+                        _0xF.content = _0xDecrypt(_0xText);
+                        _0xF.decryptStatus = "completed";
+                    } catch (_0xE) {
+                        _0xF.decryptStatus = "failed";
+                    }
+                }
+                _0xState.progress = Math.round(((i + 1) / _0xState.files.length) * 100);
+                _0xRender();
+            }
+            _0xState.progress = 100;
+            _0xRender();
+        }
+
+        async function _0xExportAll() {
+            _0xResetIdle();
+            var _0xZip = new JSZip();
+            _0xState.files.forEach(function(_0xF) {
+                if (_0xF.decryptStatus === "completed") {
+                    _0xZip.file(_0xF.name, _0xF.content);
+                    _0xF.exportStatus = "exported";
+                }
+            });
+            var _0xBlob = await _0xZip.generateAsync({ type: "blob" });
+            saveAs(_0xBlob, "测试工具_解密结果.zip");
+            _0xRender();
+        }
+
+        function _0xClearAll() {
+            _0xResetIdle();
+            _0xState.files = [];
+            _0xState.progress = 0;
+            _0xRender();
+        }
+
+        function _0xRemoveFile(_0xId) {
+            _0xResetIdle();
+            _0xState.files = _0xState.files.filter(function(f) { return f.id !== _0xId; });
+            _0xRender();
+        }
+
+        function _0xLoginPage() {
+            return '<div class="min-h-screen flex items-center justify-center p-4 fade-in">' +
+                '<div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">' +
+                '<div class="text-center mb-8">' +
+                '<div class="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">' +
+                '<svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>' +
+                '</svg></div>' +
+                '<h1 class="text-2xl font-bold text-slate-800">日志解密工具</h1>' +
+                '<p class="text-slate-500 mt-2">请输入授权密码</p></div>' +
+                '<form class="space-y-4" onsubmit="return window._0xHandleLogin(event)">' +
+                '<div>' +
+                '<input type="password" id="password" placeholder="输入密码" ' +
+                'class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">' +
+                '</div>' +
+                '<div id="errorMsg" class="text-red-500 text-sm text-center hidden"></div>' +
+                '<button type="submit" ' +
+                'class="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">' +
+                '登录</button></form>' +
+                '<p class="text-center text-xs text-slate-400 mt-6">设备绑定 | 一次性密码</p></div></div>';
+        }
+
+        function _0xMainPage() {
+            var _0xFileList = _0xState.files.map(function(_0xF) {
+                var _0xStatusColor = {
+                    pending: "bg-amber-100 text-amber-700",
+                    decrypting: "bg-blue-100 text-blue-700",
+                    completed: "bg-green-100 text-green-700",
+                    failed: "bg-red-100 text-red-700"
+                }[_0xF.decryptStatus];
+                var _0xExportColor = {
+                    pending: "bg-slate-100 text-slate-600",
+                    exported: "bg-purple-100 text-purple-700"
+                }[_0xF.exportStatus];
+                return '<div class="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">' +
+                    '<div class="flex-1 min-w-0">' +
+                    '<p class="font-medium text-slate-800 truncate">' + _0xF.name + '</p>' +
+                    '<div class="flex gap-2 mt-2">' +
+                    '<span class="px-2 py-1 text-xs rounded-full ' + _0xStatusColor + '">' +
+                    {pending: "待解密", decrypting: "解密中", completed: "完成", failed: "失败"}[_0xF.decryptStatus] + '</span>' +
+                    '<span class="px-2 py-1 text-xs rounded-full ' + _0xExportColor + '">' +
+                    (_0xF.exportStatus === "exported" ? "已导出" : "待导出") + '</span></div></div>' +
+                    '<button class="ml-4 p-2 text-slate-400 hover:text-red-500 transition-colors" onclick="window._0xRemoveFileFn(' + _0xF.id + ')">' +
+                    '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
+            }).join("");
+
+            var _0xCanDecrypt = _0xState.files.length > 0 && _0xState.files.some(function(f) { return f.decryptStatus === "pending"; });
+            var _0xCanExport = _0xState.files.length > 0 && _0xState.files.some(function(f) { return f.decryptStatus === "completed" && f.exportStatus === "pending"; });
+
+            return '<div class="min-h-screen p-4 md:p-8 fade-in">' +
+                '<div class="max-w-4xl mx-auto space-y-6">' +
+                '<div class="bg-white rounded-2xl shadow-lg p-6">' +
+                '<h1 class="text-2xl font-bold text-slate-800 mb-4">日志解密工具</h1>' +
+                '<div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all">' +
+                '<svg class="w-12 h-12 mx-auto mb-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">' +
+                '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>' +
+                '</svg>' +
+                '<p class="text-slate-600 mb-2">拖拽文件到此处，或点击选择文件</p>' +
+                '<p class="text-xs text-slate-400">支持 .log 和 .txt 文件</p>' +
+                '<input type="file" id="fileInput" multiple accept=".log,.txt" class="hidden"></div></div>' +
+
+                '<div class="bg-white rounded-2xl shadow-lg p-6">' +
+                '<div class="flex flex-wrap gap-4 mb-4">' +
+                '<button ' +
+                'class="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"' +
+                (_0xCanDecrypt ? '' : ' disabled') + ' onclick="window._0xDecryptAllFn()">批量解密</button>' +
+                '<button ' +
+                'class="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-medium hover:from-green-600 hover:to-green-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"' +
+                (_0xCanExport ? '' : ' disabled') + ' onclick="window._0xExportAllFn()">导出ZIP</button>' +
+                '<button class="px-6 py-3 bg-slate-200 text-slate-700 rounded-xl font-medium hover:bg-slate-300 transition-all" onclick="window._0xClearAllFn()">清空列表</button></div>' +
+
+                (_0xState.progress > 0 ? '<div class="mb-4">' +
+                '<div class="flex justify-between text-sm text-slate-600 mb-2">' +
+                '<span>处理进度</span><span>' + _0xState.progress + '%</span></div>' +
+                '<div class="h-2 bg-slate-200 rounded-full overflow-hidden">' +
+                '<div class="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-300" style="width:' + _0xState.progress + '%"></div></div></div>' : '') +
+
+                '<div class="max-h-96 overflow-y-auto space-y-2">' +
+                (_0xFileList || '<p class="text-center text-slate-400 py-8">暂无文件</p>') + '</div></div>' +
+
+                '<div class="text-center text-xs text-slate-400">已使用密码将永久失效 | 换设备需重新授权</div></div></div>';
+        }
+
+        function _0xRender() {
+            var _0xApp = document.getElementById("app");
+            if (_0xState.loggedIn) {
+                _0xApp.innerHTML = _0xMainPage();
+                _0xInitDropZone();
+            } else {
+                _0xApp.innerHTML = _0xLoginPage();
+            }
+        }
+
+        window._0xHandleLogin = function(e) {
+            e.preventDefault();
+            var _0xPwd = document.getElementById("password").value.trim();
+            var _0xResult = _0xLogin(_0xPwd);
+            if (!_0xResult.ok) {
+                var _0xErr = document.getElementById("errorMsg");
+                _0xErr.textContent = _0xResult.msg;
+                _0xErr.classList.remove("hidden");
+            } else {
+                _0xRender();
+            }
+            return false;
+        };
+
+        window._0xDecryptAllFn = function() {
+            _0xDecryptAll();
+        };
+
+        window._0xExportAllFn = function() {
+            _0xExportAll();
+        };
+
+        window._0xClearAllFn = function() {
+            _0xClearAll();
+        };
+
+        window._0xRemoveFileFn = function(_0xId) {
+            _0xRemoveFile(_0xId);
+        };
+
+        function _0xInitDropZone() {
+            var _0xDrop = document.getElementById("dropZone");
+            var _0xInput = document.getElementById("fileInput");
+            _0xDrop.addEventListener("click", function() { _0xInput.click(); });
+            _0xInput.addEventListener("change", function(e) { _0xHandleFiles(e.target.files); });
+            _0xDrop.addEventListener("dragover", function(e) {
+                e.preventDefault();
+                _0xDrop.classList.add("drag-active");
+            });
+            _0xDrop.addEventListener("dragleave", function() { _0xDrop.classList.remove("drag-active"); });
+            _0xDrop.addEventListener("drop", function(e) {
+                e.preventDefault();
+                _0xDrop.classList.remove("drag-active");
+                _0xHandleFiles(e.dataTransfer.files);
+            });
+        }
+
+        document.addEventListener("mousemove", _0xResetIdle);
+        document.addEventListener("click", _0xResetIdle);
+        document.addEventListener("keydown", _0xResetIdle);
+        document.addEventListener("scroll", _0xResetIdle);
+
+        _0xRender();
+    })(window);
+    </script>
+</body>
+</html>

@@ -1,0 +1,147 @@
+@import './variables.scss';
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#app {
+  min-height: 100vh;
+  width: 100%;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.4);
+  border-radius: 3px;
+  
+  &:hover {
+    background: rgba(100, 116, 139, 0.6);
+  }
+}
+
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: $radius-card;
+  box-shadow: var(--shadow-card);
+  transition: all $transition-normal;
+  
+  &:hover {
+    border-color: var(--border-color-hover);
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+.glass-button {
+  background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: $radius-button;
+  padding: 8px 20px;
+  font-size: $font-size-base;
+  cursor: pointer;
+  transition: all $transition-fast;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left $transition-normal;
+  }
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: $shadow-glow;
+    
+    &::before {
+      left: 100%;
+    }
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+.page-enter-active,
+.page-leave-active {
+  transition: opacity $transition-normal;
+}
+
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
+.pulse-animation {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.grid-bg {
+  background-image: 
+    linear-gradient(rgba(22, 93, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(22, 93, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@media screen and (max-width: 1200px) {
+  .grid-bg {
+    background-size: 30px 30px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  body {
+    font-size: 13px;
+  }
+  
+  .grid-bg {
+    background-size: 20px 20px;
+  }
+}
+
+@media screen and (max-width: 480px) {
+  body {
+    font-size: 12px;
+  }
+  
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}

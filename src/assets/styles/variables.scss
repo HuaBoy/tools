@@ -1,0 +1,43 @@
+$primary-color: #165DFF;
+$secondary-color: #36CFC9;
+$warning-color: #FF7D00;
+$success-color: #00B42A;
+$danger-color: #F53F3F;
+$info-color: #86909C;
+
+$transition-fast: 0.2s ease;
+$transition-normal: 0.3s ease;
+$transition-slow: 0.5s ease;
+
+$font-size-xs: 12px;
+$font-size-sm: 13px;
+$font-size-base: 14px;
+$font-size-lg: 16px;
+$font-size-xl: 18px;
+$font-size-xxl: 24px;
+
+$radius-card: 12px;
+$radius-button: 8px;
+$radius-input: 8px;
+
+$shadow-card: 0 8px 32px rgba(0, 0, 0, 0.15);
+$shadow-card-hover: 0 8px 32px rgba(22, 93, 255, 0.15);
+$shadow-glow: 0 0 20px rgba(22, 93, 255, 0.15);
+
+:root {
+  --bg-base: #FFFFFF;
+  --bg-card: rgba(255, 255, 255, 0.95);
+  --bg-card-hover: rgba(248, 250, 252, 0.95);
+  --bg-input: rgba(248, 250, 252, 0.8);
+  --bg-sidebar: rgba(255, 255, 255, 0.98);
+  
+  --text-primary: #1E293B;
+  --text-secondary: #64748B;
+  --text-tertiary: #94A3B8;
+  
+  --border-color: rgba(22, 93, 255, 0.2);
+  --border-color-hover: rgba(22, 93, 255, 0.4);
+  
+  --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 8px 30px rgba(22, 93, 255, 0.12);
+}

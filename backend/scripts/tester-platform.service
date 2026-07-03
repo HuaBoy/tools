@@ -1,0 +1,20 @@
+[Unit]
+Description=Tester Platform Backend
+After=network.target
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/tester-platform/backend
+Environment="GIN_MODE=release"
+EnvironmentFile=/www/wwwroot/tester-platform/backend/.env
+ExecStart=/www/wwwroot/tester-platform/backend/bin/tester-platform
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+StandardOutput=append:/www/wwwroot/tester-platform/backend/logs/stdout.log
+StandardError=append:/www/wwwroot/tester-platform/backend/logs/stderr.log
+
+[Install]
+WantedBy=multi-user.target
