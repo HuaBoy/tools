@@ -92,9 +92,9 @@ onUnmounted(() => {
           @close="handleCloseSidebar"
         />
         <div class="content-area" :class="{ 'content-full': isMobile && !sidebarVisible }">
-          <Transition name="page" mode="out-in">
-            <router-view />
-          </Transition>
+          <router-view v-slot="{ Component }">
+            <component :is="Component" />
+          </router-view>
         </div>
       </div>
     </template>

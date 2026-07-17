@@ -5,6 +5,7 @@ import GlassCard from '@/components/GlassCard.vue';
 import { useLogsStore } from '@/stores/logs';
 import CryptoJS from 'crypto-js';
 import { getTenantName, getTenantOptions } from '@/utils/tenant.js';
+import { performLogin, syncGlobalLoginState } from '@/utils/platformLogin.js';
 
 const logsStore = useLogsStore();
 
@@ -650,38 +651,19 @@ const handleLogin = async () => {
 
   isLoggingIn.value = true;
   try {
-    const params = new URLSearchParams();
-    params.append('tenantId', '000000');
-    params.append('username', loginForm.value.username);
-    params.append('password', md5(loginForm.value.password));
-    params.append('grant_type', 'password');
-    params.append('scope', 'all');
-    params.append('type', 'account');
-
-    const response = await fetch(`${LOGIN_URL}?${params.toString()}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': getAuthHeader(),
-        'accept': 'application/json, text/plain, */*',
-        'origin': TARGET_ORIGIN,
-        'referer': TARGET_ORIGIN + '/',
-        'tenant-id': '000000'
-      }
-    });
-
-    const data = await response.json();
-    if (data.code === 200 && data.data && data.data.access_token) {
-      accessToken.value = data.data.access_token;
+    const result = await performLogin('mp', loginForm.value.username, loginForm.value.password);
+    if (result.success) {
+      accessToken.value = result.data.access_token;
       isLoggedIn.value = true;
-      // 持久化 token + 过期时间（默认24小时），避免每次刷新都重新登录
-      persistToken(data.data.access_token, data.data.expires_in);
+      // 持久化 token + 过期时间
+      persistToken(result.data.access_token, result.data.expires_in);
       localStorage.setItem('mp_username', loginForm.value.username);
       ElMessage.success('登录成功');
       logsStore.addLog('登录', 'AI起爆数据查询', `用户: ${loginForm.value.username}`);
       // 登录成功后自动同时查询设备数据 + 爆破记录
       handleUnifiedSearch();
     } else {
-      ElMessage.error(`登录失败: ${data.message || data.msg || '未知错误'}`);
+      ElMessage.error(`登录失败: ${result.message}`);
     }
   } catch (e) {
     ElMessage.error('网络连接失败: ' + e.message);

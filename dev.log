@@ -1,0 +1,75 @@
+
+> ai-blasting-toolset@1.0.0 dev
+> vite --host 0.0.0.0
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m1142[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.28.80.1:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://10.51.22.46:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.23.0.1:[1m3000[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+  ╷
+1 │ @import "@/assets/styles/variables.scss";@import './variables.scss';
+  │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  ╵
+    src\assets\styles\global.scss 1:9  root stylesheet
+
+DEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+  ╷
+1 │ @import "@/assets/styles/variables.scss";@import './variables.scss';
+  │                                                  ^^^^^^^^^^^^^^^^^^
+  ╵
+    src\assets\styles\global.scss 1:50  root stylesheet
+
+DEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.
+Use color.adjust instead.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+   ╷
+56 │   background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+   │                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    src\assets\styles\global.scss 56:58  root stylesheet
+
+DEPRECATION WARNING [color-functions]: darken() is deprecated. Suggestions:
+
+color.scale($color, $lightness: -18.4115523466%)
+color.adjust($color, $lightness: -10%)
+
+More info: https://sass-lang.com/d/color-functions
+
+   ╷
+56 │   background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+   │                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    src\assets\styles\global.scss 56:58  root stylesheet
+
+[2m13:19:16[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/knowledge/DeviceVersionTab.vue[22m
+[2m13:19:37[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/knowledge/DeviceVersionTab.vue?vue&type=style&index=0&scoped=39d28e11&lang.css[22m
+[2m13:42:59[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/knowledge/DeviceVersionTab.vue[22m
+[2m13:43:18[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/knowledge/DeviceVersionTab.vue?vue&type=style&index=0&scoped=39d28e11&lang.css[22m
+[2m13:44:32[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/knowledge/DeviceVersionTab.vue[22m
+[2m13:44:41[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/knowledge/DeviceVersionTab.vue[22m
+[2m13:45:17[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/knowledge/DeviceVersionTab.vue[22m
+[2m13:45:37[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/knowledge/DeviceVersionTab.vue?vue&type=style&index=0&scoped=39d28e11&lang.css[22m
+[2m14:15:30[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m14:15:35[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m14:21:15[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/ai/AiPcb.vue[22m
+[2m14:21:41[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/ai/AiPcb.vue[22m
+[2m14:44:25[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/ai/AiPcb.vue[22m
+[2m14:44:40[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/ai/AiPcb.vue[22m
+[2m14:44:52[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/ai/AiPcb.vue?vue&type=style&index=0&scoped=7ac8dae9&lang.css[22m

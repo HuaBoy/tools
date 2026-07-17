@@ -1,16 +1,94 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import GlassCard from '@/components/GlassCard.vue';
+import DeviceVersionTab from './DeviceVersionTab.vue';
 import { useLogsStore } from '@/stores/logs';
 import { getDeviceTypeByAppVersion, getAllDeviceTypes } from '@/utils/deviceType.js';
 
 const logsStore = useLogsStore();
 
-const selectedRegion = ref('domestic');
+// ==================== 顶层 TAB 系统 ====================
+const mainTabs = ref([
+  { key: 'blaster', label: '起爆器版本', removable: false },
+  { key: 'device', label: '设备版本', removable: false }
+]);
+const activeMainTab = ref('blaster');
+const showAddTabDialog = ref(false);
+const newTabName = ref('');
+
+// 从 localStorage 加载自定义 Tab
+const loadCustomTabs = () => {
+  try {
+    const saved = localStorage.getItem('version_history_custom_tabs');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        mainTabs.value = [
+          { key: 'blaster', label: '起爆器版本', removable: false },
+          { key: 'device', label: '设备版本', removable: false },
+          ...parsed
+        ];
+      }
+    }
+  } catch (e) {
+    console.warn('加载自定义Tab失败:', e);
+  }
+};
+const saveCustomTabs = () => {
+  const custom = mainTabs.value.filter(t => t.removable !== false);
+  localStorage.setItem('version_history_custom_tabs', JSON.stringify(custom));
+};
+
+// 添加自定义 Tab
+const addCustomTab = () => {
+  const name = newTabName.value.trim();
+  if (!name) {
+    ElMessage.warning('请输入Tab名称');
+    return;
+  }
+  if (mainTabs.value.some(t => t.label === name)) {
+    ElMessage.warning('Tab名称已存在');
+    return;
+  }
+  const key = 'custom_' + Date.now();
+  mainTabs.value.push({ key, label: name, removable: true });
+  activeMainTab.value = key;
+  newTabName.value = '';
+  showAddTabDialog.value = false;
+  saveCustomTabs();
+  logsStore.addLog('新增', '版本履历', `新增Tab: ${name}`);
+  ElMessage.success(`已添加"${name}"标签`);
+};
+
+// 移除自定义 Tab
+const removeCustomTab = (tab) => {
+  if (!tab.removable) return;
+  const idx = mainTabs.value.findIndex(t => t.key === tab.key);
+  if (idx < 0) return;
+  mainTabs.value.splice(idx, 1);
+  if (activeMainTab.value === tab.key) {
+    activeMainTab.value = 'blaster';
+  }
+  saveCustomTabs();
+  ElMessage.success(`已移除"${tab.label}"标签`);
+};
+
+// 切换 Tab
+const switchMainTab = (key) => {
+  activeMainTab.value = key;
+};
+
+loadCustomTabs();
+
+const selectedRegion = ref('domestic');   // 区域默认国内：'domestic' | 'overseas'
 const selectedVersion = ref(null);
 const compareVersion = ref(null);
 const showCompare = ref(false);
+
+// 起爆器 / 设备 筛选条件
+const filterBlaster = ref('');
+const filterDevice = ref('');
 
 // 存储已上传的版本（按区域分类）
 const uploadedVersions = ref({
@@ -42,7 +120,7 @@ const tempFeature = ref({
 // 打开新增版本对话框
 const openAddVersionDialog = () => {
   versionForm.value = {
-    region: selectedRegion.value,
+    region: selectedRegion.value || 'domestic',
     id: '',
     date: new Date().toISOString().slice(0, 10),
     appVersion: '',
@@ -191,7 +269,11 @@ const domesticVersions = [
   {
     id: 'v3.2.0',
     date: '2026-06-20',
-    title: '新增AI智能分析功能',
+    title: 'AI起爆器 APP L.1.2.11 / 控制器 8.5-B',
+    appVersion: 'L.1.2.11T2',
+    controllerVersion: '8.5-B',
+    usedDevice: '小勇士设备',
+    deviceTypeColor: '#165DFF',
     features: [
       { type: 'new', text: '新增AI日志分析功能，支持智能识别异常日志' },
       { type: 'new', text: '新增电压电流曲线图动态范围计算' },
@@ -204,7 +286,11 @@ const domesticVersions = [
   {
     id: 'v3.1.0',
     date: '2026-05-15',
-    title: '多语言翻译支持',
+    title: 'AI起爆器 APP I.2.1.5 / 控制器 8.4-C',
+    appVersion: 'I.2.1.5',
+    controllerVersion: '8.4-C',
+    usedDevice: 'DT40设备',
+    deviceTypeColor: '#722ED1',
     features: [
       { type: 'new', text: '新增AI翻译工具，支持8种语言翻译' },
       { type: 'new', text: '新增本地术语映射表，支持起爆器专业术语' },
@@ -216,7 +302,11 @@ const domesticVersions = [
   {
     id: 'v3.0.0',
     date: '2026-04-10',
-    title: '知识库系统上线',
+    title: 'AI起爆器 APP Q.3.0.1 / 控制器 8.4-A',
+    appVersion: 'Q.3.0.1',
+    controllerVersion: '8.4-A',
+    usedDevice: '全面屏设备',
+    deviceTypeColor: '#13C2C2',
     features: [
       { type: 'new', text: '新增AI问题数据库，基于本地RAG系统' },
       { type: 'new', text: '支持向量匹配、阈值过滤、结果排序' },
@@ -228,7 +318,11 @@ const domesticVersions = [
   {
     id: 'v2.5.0',
     date: '2026-03-05',
-    title: 'API测试助手',
+    title: 'AI起爆器 APP K.2.0.8 / 控制器 8.3-B',
+    appVersion: 'K.2.0.8',
+    controllerVersion: '8.3-B',
+    usedDevice: '煤许设备',
+    deviceTypeColor: '#FA8C16',
     features: [
       { type: 'new', text: '新增API测试助手，支持登录验证测试' },
       { type: 'new', text: '支持设备查询接口测试' },
@@ -240,7 +334,11 @@ const domesticVersions = [
   {
     id: 'v2.0.0',
     date: '2026-01-20',
-    title: '系统重构升级',
+    title: 'AI起爆器 APP T.1.5.0 / 控制器 8.2-A',
+    appVersion: 'T.1.5.0',
+    controllerVersion: '8.2-A',
+    usedDevice: 'DT40和小勇士设备',
+    deviceTypeColor: '#52C41A',
     features: [
       { type: 'new', text: '全新UI界面设计，玻璃态风格' },
       { type: 'new', text: '新增数据查询模块' },
@@ -255,7 +353,11 @@ const overseasVersions = [
   {
     id: 'v3.2.0',
     date: '2026-06-25',
-    title: 'International Release - AI Analysis',
+    title: 'Intl Blasting APP L.1.2.11 / Ctrl 8.5-B',
+    appVersion: 'L.1.2.11T2',
+    controllerVersion: '8.5-B',
+    usedDevice: '小勇士设备',
+    deviceTypeColor: '#165DFF',
     features: [
       { type: 'new', text: 'AI log analysis with intelligent anomaly detection' },
       { type: 'new', text: 'Dynamic range calculation for voltage/current charts' },
@@ -268,7 +370,11 @@ const overseasVersions = [
   {
     id: 'v3.1.0',
     date: '2026-05-20',
-    title: 'International Release - Translation Tool',
+    title: 'Intl Blasting APP I.2.1.5 / Ctrl 8.4-C',
+    appVersion: 'I.2.1.5',
+    controllerVersion: '8.4-C',
+    usedDevice: 'DT40设备',
+    deviceTypeColor: '#722ED1',
     features: [
       { type: 'new', text: 'AI Translation Tool with 8 language support' },
       { type: 'new', text: 'Professional terminology mapping for blasting equipment' },
@@ -280,7 +386,11 @@ const overseasVersions = [
   {
     id: 'v3.0.0',
     date: '2026-04-15',
-    title: 'International Release - Knowledge Base',
+    title: 'Intl Blasting APP Q.3.0.1 / Ctrl 8.4-A',
+    appVersion: 'Q.3.0.1',
+    controllerVersion: '8.4-A',
+    usedDevice: '全面屏设备',
+    deviceTypeColor: '#13C2C2',
     features: [
       { type: 'new', text: 'AI Question Database with local RAG system' },
       { type: 'new', text: 'Vector matching, threshold filtering, result sorting' },
@@ -292,7 +402,11 @@ const overseasVersions = [
   {
     id: 'v2.5.0',
     date: '2026-03-10',
-    title: 'International Release - API Tester',
+    title: 'Intl Blasting APP K.2.0.8 / Ctrl 8.3-B',
+    appVersion: 'K.2.0.8',
+    controllerVersion: '8.3-B',
+    usedDevice: '煤许设备',
+    deviceTypeColor: '#FA8C16',
     features: [
       { type: 'new', text: 'API Test Assistant for login verification' },
       { type: 'new', text: 'Device query API testing support' },
@@ -304,7 +418,11 @@ const overseasVersions = [
   {
     id: 'v2.0.0',
     date: '2026-01-25',
-    title: 'International Release - System Upgrade',
+    title: 'Intl Blasting APP T.1.5.0 / Ctrl 8.2-A',
+    appVersion: 'T.1.5.0',
+    controllerVersion: '8.2-A',
+    usedDevice: 'DT40和小勇士设备',
+    deviceTypeColor: '#52C41A',
     features: [
       { type: 'new', text: 'New UI design with glassmorphism style' },
       { type: 'new', text: 'Data query module' },
@@ -327,6 +445,47 @@ const currentVersions = computed(() => {
   });
   // 按日期降序
   return Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+});
+
+// ==================== 区域选择 + 起爆器/设备筛选 ====================
+const selectRegion = (region) => {
+  selectedRegion.value = region;
+  selectedVersion.value = null;
+  filterBlaster.value = '';
+  filterDevice.value = '';
+};
+
+const resetFilters = () => {
+  filterBlaster.value = '';
+  filterDevice.value = '';
+};
+
+// 起爆器型号选项（由 APP 版本前缀映射得到，如 小勇士设备 / DT40设备 等）
+const blasterOptions = computed(() => {
+  const set = new Set();
+  currentVersions.value.forEach(v => {
+    set.add(getDeviceTypeByAppVersion(v.appVersion || v.id).name);
+  });
+  return Array.from(set);
+});
+
+// 设备选项（版本中的"使用设备"字段）
+const deviceOptions = computed(() => {
+  const set = new Set();
+  currentVersions.value.forEach(v => {
+    if (v.usedDevice) set.add(v.usedDevice);
+  });
+  return Array.from(set);
+});
+
+// 按 起爆器 + 设备 过滤后的版本列表
+const filteredVersions = computed(() => {
+  return currentVersions.value.filter(v => {
+    const blasterName = getDeviceTypeByAppVersion(v.appVersion || v.id).name;
+    const okBlaster = !filterBlaster.value || blasterName === filterBlaster.value;
+    const okDevice = !filterDevice.value || v.usedDevice === filterDevice.value;
+    return okBlaster && okDevice;
+  });
 });
 
 /**
@@ -433,74 +592,126 @@ const handleDeleteUploaded = (version) => {
 <template>
   <div class="version-manual">
     <GlassCard title="版本履历">
-      <div class="version-container">
-        <!-- 区域选择 + 上传按钮 -->
-        <div class="toolbar">
-          <div class="region-selector">
-            <button
-              class="region-btn"
-              :class="{ active: selectedRegion === 'domestic' }"
-              @click="selectedRegion = 'domestic'; selectedVersion = null"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              <span>国内版本</span>
-            </button>
-            <button
-              class="region-btn"
-              :class="{ active: selectedRegion === 'overseas' }"
-              @click="selectedRegion = 'overseas'; selectedVersion = null"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              <span>海外版本</span>
-            </button>
-          </div>
-
+      <!-- 顶部筛选行：区域 + 维度（起爆器版本 / 设备版本） -->
+      <div class="top-filter-row">
+        <!-- 区域筛选（无“区域”标签，默认国内） -->
+        <div class="region-segment">
           <button
-            class="add-version-btn"
-            @click="openAddVersionDialog"
+            class="region-seg-btn"
+            :class="{ active: selectedRegion === 'domestic' }"
+            @click="selectRegion('domestic')"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-            <span>新增版本</span>
+            <span class="region-seg-flag">🇨🇳</span>
+            <span>国内版本</span>
+          </button>
+          <button
+            class="region-seg-btn"
+            :class="{ active: selectedRegion === 'overseas' }"
+            @click="selectRegion('overseas')"
+          >
+            <span class="region-seg-flag">🌐</span>
+            <span>海外版本</span>
           </button>
         </div>
 
-        <!-- 提示信息 -->
-        <div class="upload-hint">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="12" y1="16" x2="12" y2="12" />
-            <line x1="12" y1="8" x2="12.01" y2="8" />
-          </svg>
-          <span>
-            点击"新增版本"按钮添加新版本。
-            自动识别：<strong>软件版本</strong>（APP版本）/<strong>控制器版本</strong>（如 8.5-B）/<strong>使用设备</strong>/<strong>测试项</strong>
-            <br />设备类型自动判断：<code>L</code>→小勇士、<code>I</code>→DT40、<code>Q</code>→全面屏、<code>K</code>→煤许、<code>T</code>→DT40+小勇士
-          </span>
-        </div>
-
-        <!-- 版本列表 -->
-        <div class="version-list">
-          <div 
-            v-for="version in currentVersions" 
-            :key="version.id"
-            class="version-item"
-            :class="{ selected: selectedVersion?.id === version.id }"
+        <!-- 维度筛选：起爆器版本 / 设备版本（样式参考区域分段控件） -->
+        <div class="region-segment">
+          <button
+            class="region-seg-btn"
+            :class="{ active: activeMainTab === 'blaster' }"
+            @click="activeMainTab = 'blaster'"
           >
-            <div class="version-header" @click="handleSelectVersion(version)">
-              <div class="version-info">
+            <span>起爆器版本</span>
+          </button>
+          <button
+            class="region-seg-btn"
+            :class="{ active: activeMainTab === 'device' }"
+            @click="activeMainTab = 'device'"
+          >
+            <span>设备版本</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ==================== 起爆器版本 ==================== -->
+      <div v-if="activeMainTab === 'blaster'" class="version-container">
+        <!-- 筛选栏 + 版本列表（进入即展示，无需先选区域） -->
+        <div>
+          <!-- 筛选栏 -->
+          <div class="filter-bar">
+            <div class="filter-group">
+              <label class="filter-label">起爆器</label>
+              <select v-model="filterBlaster" class="filter-select">
+                <option value="">全部起爆器</option>
+                <option v-for="o in blasterOptions" :key="o" :value="o">{{ o }}</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">设备</label>
+              <select v-model="filterDevice" class="filter-select">
+                <option value="">全部设备</option>
+                <option v-for="o in deviceOptions" :key="o" :value="o">{{ o }}</option>
+              </select>
+            </div>
+            <button class="filter-reset" @click="resetFilters" v-if="filterBlaster || filterDevice">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span>重置筛选</span>
+            </button>
+            <span class="filter-count">共 {{ filteredVersions.length }} 个版本</span>
+            <button class="add-version-btn" @click="openAddVersionDialog">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+              <span>新增版本</span>
+            </button>
+          </div>
+
+          <!-- 提示信息 -->
+          <div class="upload-hint">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>
+              点击"新增版本"按钮添加新版本。
+              自动识别：<strong>软件版本</strong>（APP版本）/<strong>控制器版本</strong>（如 8.5-B）/<strong>使用设备</strong>/<strong>测试项</strong>
+              <br />设备类型自动判断：<code>L</code>→小勇士、<code>I</code>→DT40、<code>Q</code>→全面屏、<code>K</code>→煤许、<code>T</code>→DT40+小勇士
+            </span>
+          </div>
+
+          <!-- 版本列表（一行五个饱满卡片） -->
+          <div class="version-grid" v-if="filteredVersions.length">
+            <div 
+              v-for="version in filteredVersions" 
+              :key="version.id"
+              class="version-card"
+              :class="{ selected: selectedVersion?.id === version.id }"
+            >
+              <div class="vc-top">
                 <span class="version-id">{{ version.id }}</span>
-                <span class="version-date">{{ version.date }}</span>
+                <span v-if="version.source === 'uploaded'" class="uploaded-badge">已上传</span>
+                <button
+                  v-if="version.source === 'uploaded'"
+                  class="delete-version-btn"
+                  @click.stop="handleDeleteUploaded(version)"
+                  title="删除此上传版本"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  </svg>
+                </button>
+              </div>
+
+              <div class="version-date">{{ version.date }}</div>
+              <div class="version-title">{{ version.title }}</div>
+
+              <div class="version-tags">
                 <span v-if="version.appVersion" class="version-app" title="APP 版本（软件版本）">
                   APP：{{ version.appVersion }}
                 </span>
@@ -520,60 +731,61 @@ const handleDeleteUploaded = (version) => {
                   </svg>
                   {{ version.usedDevice }}
                 </span>
-                <span v-if="version.source === 'uploaded'" class="uploaded-badge">已上传</span>
               </div>
-              <div class="version-title">{{ version.title }}</div>
+
               <div class="version-count">
                 <span class="count-new">{{ version.features.filter(f => f.type === 'new').length }} 新增</span>
                 <span class="count-improve">{{ version.features.filter(f => f.type === 'improve').length }} 优化</span>
                 <span class="count-fix">{{ version.features.filter(f => f.type === 'fix').length }} 修复</span>
-                <button
-                  v-if="version.source === 'uploaded'"
-                  class="delete-version-btn"
-                  @click.stop="handleDeleteUploaded(version)"
-                  title="删除此上传版本"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <div v-if="selectedVersion?.id === version.id" class="version-detail">
-              <div class="detail-header">
-                <span>版本详情</span>
-                <button class="compare-btn" @click.stop="showCompare = true">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="20" x2="18" y2="10" />
-                    <line x1="12" y1="20" x2="12" y2="4" />
-                    <line x1="6" y1="20" x2="6" y2="14" />
-                  </svg>
-                  <span>版本对比</span>
-                </button>
               </div>
 
-              <div class="feature-list">
-                <div
-                  v-for="(feature, index) in version.features"
-                  :key="index"
-                  class="feature-item"
-                  :class="getFeatureTypeClass(feature.type)"
-                >
-                  <span class="feature-type">{{ getFeatureTypeLabel(feature.type) }}</span>
-                  <span class="feature-text">{{ feature.text }}</span>
+              <button class="vc-toggle" @click="handleSelectVersion(version)">
+                {{ selectedVersion?.id === version.id ? '收起详情' : '查看详情' }}
+              </button>
+
+              <div v-if="selectedVersion?.id === version.id" class="version-detail">
+                <div class="detail-header">
+                  <span>版本详情</span>
+                  <button class="compare-btn" @click.stop="showCompare = true">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="18" y1="20" x2="18" y2="10" />
+                      <line x1="12" y1="20" x2="12" y2="4" />
+                      <line x1="6" y1="20" x2="6" y2="14" />
+                    </svg>
+                    <span>版本对比</span>
+                  </button>
+                </div>
+
+                <div class="feature-list">
+                  <div
+                    v-for="(feature, index) in version.features"
+                    :key="index"
+                    class="feature-item"
+                    :class="getFeatureTypeClass(feature.type)"
+                  >
+                    <span class="feature-type">{{ getFeatureTypeLabel(feature.type) }}</span>
+                    <span class="feature-text">{{ feature.text }}</span>
+                  </div>
                 </div>
               </div>
+
+              <button 
+                v-if="selectedVersion && selectedVersion.id !== version.id"
+                class="compare-action"
+                @click="handleCompareVersion(version)"
+              >
+                与此版本对比
+              </button>
             </div>
-            
-            <button 
-              v-if="selectedVersion && selectedVersion.id !== version.id"
-              class="compare-action"
-              @click="handleCompareVersion(version)"
-            >
-              与此版本对比
-            </button>
+          </div>
+
+          <!-- 空状态 -->
+          <div class="version-empty" v-else>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c9cdd4" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+            <p>当前筛选条件下暂无版本，请调整或重置起爆器 / 设备筛选</p>
           </div>
         </div>
 
@@ -806,7 +1018,56 @@ const handleDeleteUploaded = (version) => {
           </div>
         </div>
       </div>
+
+      <!-- ==================== 设备版本 ==================== -->
+      <div v-if="activeMainTab === 'device'" class="version-container">
+        <DeviceVersionTab />
+      </div>
+
+      <!-- ==================== 自定义 Tab ==================== -->
+      <div v-if="activeMainTab.startsWith('custom_')" class="version-container">
+        <div class="custom-tab-placeholder">
+          <div class="custom-tab-header">
+            <h3>{{ mainTabs.find(t => t.key === activeMainTab)?.label || '自定义标签' }}</h3>
+          </div>
+          <div class="custom-tab-content">
+            <p class="custom-tab-hint">此标签页内容可根据需求进行定制开发。</p>
+            <textarea
+              class="custom-tab-textarea"
+              placeholder="在此输入自定义内容..."
+              :id="'custom_' + activeMainTab"
+              rows="6"
+            ></textarea>
+          </div>
+        </div>
+      </div>
     </GlassCard>
+
+    <!-- 新增 TAB 对话框 -->
+    <div v-if="showAddTabDialog" class="add-version-modal" @click.self="showAddTabDialog = false">
+      <div class="add-version-dialog" style="max-width: 400px;">
+        <div class="dialog-header">
+          <h3>新增标签页</h3>
+          <button class="close-btn" @click="showAddTabDialog = false">×</button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-row">
+            <label class="form-label required">标签名称</label>
+            <input
+              type="text"
+              v-model="newTabName"
+              class="form-input"
+              placeholder="请输入标签名称"
+              @keyup.enter="addCustomTab"
+            />
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn-cancel" @click="showAddTabDialog = false; newTabName = ''">取消</button>
+          <button class="btn-save" @click="addCustomTab">添加</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -815,9 +1076,17 @@ const handleDeleteUploaded = (version) => {
   padding: 20px;
 }
 
+/* ==================== 顶部筛选行（区域 + 维度） ==================== */
+.top-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
 .version-container {
-  max-width: 900px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .toolbar {
@@ -957,51 +1226,224 @@ const handleDeleteUploaded = (version) => {
   color: white;
 }
 
-.region-selector {
-  display: flex;
-  gap: 12px;
+/* ==================== 分段控件（区域 / 维度共用） ==================== */
+.region-segment {
+  display: inline-flex;
+  padding: 4px;
+  background: #f2f3f5;
+  border-radius: 10px;
 }
 
-.region-btn {
+.region-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #4e5969;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.region-seg-btn:hover {
+  color: #165DFF;
+}
+
+.region-seg-btn.active {
+  background: white;
+  color: #165DFF;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.region-seg-flag {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ==================== 筛选栏（第二步） ==================== */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  background: #f7f9fc;
+  border: 1px solid #ebedf0;
+  border-radius: 12px;
+  margin-bottom: 16px;
+}
+
+.filter-group {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 24px;
-  border: 1px solid #ddd;
+}
+
+.filter-label {
+  font-size: 13px;
+  color: #4e5969;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.filter-select {
+  min-width: 150px;
+  padding: 8px 12px;
+  border: 1px solid #dcdfe6;
   border-radius: 8px;
+  font-size: 14px;
+  color: #1d2129;
   background: white;
   cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #165DFF;
+  box-shadow: 0 0 0 3px rgba(22, 93, 255, 0.1);
+}
+
+.filter-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  background: white;
+  color: #4e5969;
+  font-size: 13px;
+  cursor: pointer;
   transition: all 0.2s;
-  font-size: 14px;
-  font-weight: 500;
 }
 
-.region-btn:hover {
-  border-color: #4080ff;
+.filter-reset:hover {
+  border-color: #f53f3f;
+  color: #f53f3f;
 }
 
-.region-btn.active {
-  background: #4080ff;
-  color: white;
-  border-color: #4080ff;
+.filter-count {
+  font-size: 13px;
+  color: #86909c;
+  margin-left: auto;
 }
 
-.version-list {
+/* ==================== 列表空状态 ==================== */
+.version-empty {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 12px;
+  padding: 60px 20px;
+  color: #86909c;
+  background: #fafbfc;
+  border: 1px dashed #e5e6eb;
+  border-radius: 12px;
 }
 
-.version-item {
+.version-empty p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.version-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 1500px) {
+  .version-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 1180px) {
+  .version-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 860px) {
+  .version-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .version-grid { grid-template-columns: 1fr; }
+}
+
+.version-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
   background: white;
-  border-radius: 12px;
-  border: 1px solid #eee;
+  border: 1px solid #ebedf0;
+  border-radius: 14px;
+  overflow: hidden;
   transition: all 0.3s;
 }
 
-.version-item.selected {
+.version-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #4080ff, #165DFF);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.version-card:hover {
+  transform: translateY(-4px);
+  border-color: #c5d8ff;
+  box-shadow: 0 12px 28px rgba(22, 93, 255, 0.15);
+}
+
+.version-card.selected {
   border-color: #4080ff;
-  box-shadow: 0 4px 12px rgba(64, 128, 255, 0.15);
+  box-shadow: 0 8px 24px rgba(64, 128, 255, 0.18);
+}
+
+.version-card.selected::before {
+  opacity: 1;
+}
+
+.vc-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vc-top .version-id {
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.vc-toggle {
+  margin-top: 2px;
+  padding: 8px;
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  background: #f7f9fc;
+  color: #4080ff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vc-toggle:hover {
+  border-color: #4080ff;
+  background: #eef4ff;
+}
+
+.version-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 
 .version-header {
@@ -1060,9 +1502,10 @@ const handleDeleteUploaded = (version) => {
 }
 
 .version-detail {
+  margin: 4px -16px -16px;
   padding: 16px;
-  background: #fafafa;
-  border-top: 1px solid #eee;
+  background: #f7f9fc;
+  border-top: 1px solid #eef0f3;
 }
 
 .detail-header {
@@ -1139,14 +1582,21 @@ const handleDeleteUploaded = (version) => {
 }
 
 .compare-action {
-  margin: 12px 16px;
+  margin-top: 4px;
   padding: 8px 16px;
+  width: 100%;
   border: 1px solid #4080ff;
   border-radius: 6px;
   background: white;
   color: #4080ff;
   cursor: pointer;
   font-size: 13px;
+  transition: all 0.2s;
+}
+
+.compare-action:hover {
+  background: #4080ff;
+  color: white;
 }
 
 .compare-action:hover {

@@ -6,7 +6,7 @@ import { useLogsStore } from '@/stores/logs';
 import { useRouter, useRoute } from 'vue-router';
 import CryptoJS from 'crypto-js';
 import { requestWithAutoRelogin } from '@/utils/autoRelogin.js';
-import { showLoginDialog, getLatestCredentials } from '@/utils/platformLogin.js';
+import { showLoginDialog, getLatestCredentials, performLogin } from '@/utils/platformLogin.js';
 import { saveCredentials, updateLoginStatus } from '@/utils/loginStatus.js';
 import { getTenantName, getTenantOptions } from '@/utils/tenant.js';
 const logsStore = useLogsStore();
@@ -370,6 +370,19 @@ const handleBatchNoClick = (batchNo) => {
   });
 };
 
+// 低压ID点击 → 跳转到智能制造系统页面并自动带入 batchNo + idHex 筛选条件
+const handleLowVoltageIdClick = (batchNo, idHex) => {
+  if (!idHex || idHex === '-') return;
+  router.push({
+    path: '/trace/factory-data',
+    query: {
+      batchNo: batchNo || '',
+      idHex: idHex,
+      autoQuery: 'true'
+    }
+  });
+};
+
 const handleSmartLogin = async () => {
   if (!smartLoginForm.username || !smartLoginForm.password) {
     smartLoginMessage.value = '请输入用户名和密码';
@@ -380,52 +393,12 @@ const handleSmartLogin = async () => {
   smartLoginMessage.value = '';
 
   try {
-    const passwordMd5 = CryptoJS.MD5(smartLoginForm.password).toString();
-    const params = new URLSearchParams();
-    params.append('tenantId', smartLoginForm.tenantId || '000000');
-    params.append('username', smartLoginForm.username);
-    params.append('password', passwordMd5);
-    params.append('grant_type', 'password');
-    params.append('scope', 'all');
-    params.append('type', 'account');
+    // 使用统一 performLogin，自动同步全局状态（Header、token、凭据、三方授权等）
+    const result = await performLogin('smart', smartLoginForm.username, smartLoginForm.password);
 
-    const response = await fetch('/smart-api/api/blade-auth/oauth/token?' + params.toString(), {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Encoding': 'gzip, deflate',
-        'Accept-Language': 'zh-CN,zh;q=0.9',
-        'Authorization': 'Basic c2FiZXJfaWRlbnRpZmllcl9jbGllbnQ6c2FiZXJfaWRlbnRpZmllcl9zZWNyZXQ=',
-        'Cache-Control': 'no-cache',
-        'Captcha-Code': '6e990a8d4dbfdaeba242c735414e0159',
-        'Captcha-Key': '6e990a8d4dbfdaeba242c735414e0159',
-        'Connection': 'keep-alive',
-        'Origin': 'http://218.90.146.230:20001',
-        'Pragma': 'no-cache',
-        'Referer': 'http://218.90.146.230:20001/',
-        'Tenant-Id': '000000'
-      }
-    });
-
-    const result = await response.json();
-
-    if (result.code === 200 && result.data && result.data.access_token) {
+    if (result.success) {
       smartLoginSuccess.value = true;
       smartLoginMessage.value = '登录成功！即将跳转...';
-      localStorage.setItem('smart_factory_token', result.data.access_token);
-      localStorage.setItem('smart_factory_login_time', Date.now().toString());
-
-      // 保存凭据供401自动重新登录使用
-      saveCredentials('smart', {
-        tenantId: smartLoginForm.tenantId || '000000',
-        username: smartLoginForm.username,
-        password: passwordMd5,  // 加密后的密码
-        accessToken: result.data.access_token,
-        tokenExpire: Date.now() + (result.data.expires_in || 7200) * 1000
-      });
-
-      // 同步登录状态到顶部菜单栏
-      updateLoginStatus('smart', true);
 
       setTimeout(() => {
         showLoginModal.value = false;
@@ -434,7 +407,7 @@ const handleSmartLogin = async () => {
         ElMessage.success('登录智能制造平台成功');
       }, 1500);
     } else {
-      smartLoginMessage.value = result.msg || '登录失败，请检查用户名和密码';
+      smartLoginMessage.value = result.message || '登录失败，请检查用户名和密码';
     }
   } catch (error) {
     smartLoginMessage.value = '登录请求失败：' + error.message;
@@ -967,7 +940,7 @@ onMounted(() => {
                   <tr v-for="(record, index) in activeBatchResult.records" :key="record.id">
                     <td>{{ (activeBatchResult.current - 1) * activeBatchResult.size + index + 1 }}</td>
                     <td class="batch-no clickable" @click="handleBatchNoClick(record.batchNo)">{{ record.batchNo || '-' }}</td>
-                    <td class="id-hex">{{ record.idHex || '-' }}</td>
+                    <td class="id-hex clickable" @click="handleLowVoltageIdClick(record.batchNo, record.idHex)">{{ record.idHex || '-' }}</td>
                     <td>{{ record.shellCode || '-' }}</td>
                     <td class="uid">{{ record.uid || '-' }}</td>
                     <td>
@@ -1523,7 +1496,8 @@ onMounted(() => {
   }
 }
 
-.batch-no.clickable {
+.batch-no.clickable,
+.id-hex.clickable {
   color: #165DFF;
   cursor: pointer;
   text-decoration: underline;

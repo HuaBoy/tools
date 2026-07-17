@@ -1,0 +1,28 @@
+{
+  "name": "ai-blasting-mobile",
+  "version": "1.0.0",
+  "description": "AI起爆运维执行平台 - 移动端（Android APK + 微信小程序）",
+  "scripts": {
+    "dev:app": "uni",
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "build:app": "uni build -p app",
+    "build:mp-weixin": "uni build -p mp-weixin",
+    "build:h5": "uni build -p h5"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "^3.0.0",
+    "@dcloudio/uni-app-plus": "^3.0.0",
+    "@dcloudio/uni-mp-weixin": "^3.0.0",
+    "@dcloudio/uni-h5": "^3.0.0",
+    "@dcloudio/uni-ui": "^1.4.0",
+    "vue": "^3.4.0",
+    "pinia": "^2.1.0"
+  },
+  "devDependencies": {
+    "@dcloudio/types": "^3.0.0",
+    "@dcloudio/uni-automator": "^3.0.0",
+    "sass": "^1.69.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.0.0"
+  }
+}

@@ -18,9 +18,14 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5173,
+    port: 3000,
     open: false,
     proxy: {
+      '/socket.io': {
+        target: 'http://localhost:9528',
+        changeOrigin: true,
+        ws: true
+      },
       '/api/v1': {
         target: 'http://您的阿里云服务器IP:8080',
         changeOrigin: true,
@@ -55,6 +60,20 @@ export default defineConfig({
         headers: {
           'Authorization': 'Basic ' + Buffer.from('saber:saber_secret').toString('base64')
         }
+      },
+      '/big-screen': {
+        target: 'https://mp.holyview.cn:9443',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+        rewrite: (path) => path.replace(/^\/big-screen/, '')
+      },
+      // 代理 bigScreen2 子资源（JS/CSS/图片等），使 iframe 同源加载
+      '/bigScreen2': {
+        target: 'https://mp.holyview.cn:9443',
+        changeOrigin: true,
+        secure: false,
+        ws: true
       }
     }
   }

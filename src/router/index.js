@@ -51,15 +51,15 @@ const routes = [
     name: 'DataTrace',
     component: () => import('@/views/data/DataTrace.vue'),
     meta: { requiresAuth: true }
-  },
-  {
-    path: '/knowledge/base',
-    name: 'KnowledgeBase',
-    component: () => import('@/views/knowledge/KnowledgeBase.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/knowledge/manual',
+},
+        {
+          path: '/knowledge/rag',
+          name: 'KnowledgeBaseRAG',
+          component: () => import('@/views/knowledge/KnowledgeBaseRAG.vue'),
+          meta: { requiresAuth: true }
+        },
+        {
+          path: '/knowledge/manual',
     name: 'VersionManual',
     component: () => import('@/views/knowledge/VersionManual.vue'),
     meta: { requiresAuth: true }
@@ -107,6 +107,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/tools/remote-phone',
+    name: 'RemotePhoneControl',
+    component: () => import('@/views/tools/RemotePhoneControl.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/trace/analysis',
     name: 'TraceAnalysis',
     component: () => import('@/views/trace/TraceAnalysis.vue'),
@@ -141,6 +147,50 @@ const routes = [
     name: 'FeatureManagement',
     component: () => import('@/views/admin/FeatureManagement.vue'),
     meta: { requiresAuth: true }
+  },
+  {
+    path: '/stats/big-screen',
+    name: 'BigScreen',
+    component: () => import('@/views/stats/BigScreen.vue'),
+    meta: { requiresAuth: true }
+  },
+  // ===== 盛景应用 =====
+  {
+    path: '/appstore/shengjing',
+    name: 'ShengjingApp',
+    component: () => import('@/views/appstore/ShengjingApp.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/appstore/push',
+    name: 'PushManagement',
+    component: () => import('@/views/appstore/PushManagement.vue'),
+    meta: { requiresAuth: true }
+  },
+  // ===== 硬件管理（预留） =====
+  {
+    path: '/hardware/devices',
+    name: 'HardwareDevices',
+    component: () => import('@/modules/hardware/pages/DeviceManager.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/hardware/chips',
+    name: 'HardwareChips',
+    component: () => import('@/modules/hardware/pages/ChipManager.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/hardware/firmware',
+    name: 'HardwareFirmware',
+    component: () => import('@/modules/hardware/pages/FirmwareOTA.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/ai/pcb',
+    name: 'AiPcb',
+    component: () => import('@/views/ai/AiPcb.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
@@ -148,6 +198,20 @@ const router = createRouter({
   history: createWebHistory(),
   routes
 })
+
+// 预加载路由组件（hover 菜单时提前加载，消除点击延迟）
+const preloadCache = {}
+export function preloadRoute(path) {
+  if (preloadCache[path]) return
+  const matched = router.resolve(path)
+  const route = matched.matched[0]
+  if (route?.components?.default) {
+    preloadCache[path] = true
+    if (typeof route.components.default === 'function') {
+      route.components.default()
+    }
+  }
+}
 
 router.beforeEach((to, from, next) => {
   // 登录页不需要认证

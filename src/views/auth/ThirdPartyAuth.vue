@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import GlassCard from '@/components/GlassCard.vue';
 import CryptoJS from 'crypto-js';
 import { updateLoginStatus, saveCredentials as saveUnifiedCredentials, loginStatus, onLoginStatusChange } from '@/utils/loginStatus.js';
+import { performLogin } from '@/utils/platformLogin.js';
 
 const API_LOGIN_URL = 'https://mp.holyview.cn:9443/api/blade-auth/oauth/token';
 const FACTORY_LOGIN_URL = '/iot-api/api/blade-auth/oauth/token';
@@ -30,6 +31,56 @@ const factoryAccountInfo = ref(null);
 
 const apiShowAccountDropdown = ref(false);
 const factoryShowAccountDropdown = ref(false);
+
+const DEEPSEEK_KEY = 'deepseek_api_key';
+const deepseekApiKey = ref(localStorage.getItem(DEEPSEEK_KEY) || '');
+const deepseekKeySaved = ref(false);
+const deepseekTestResult = ref(null);
+const deepseekIsTesting = ref(false);
+const deepseekShowKey = ref(false);
+
+const handleSaveDeepseekKey = () => {
+  if (!deepseekApiKey.value.trim()) {
+    ElMessage.warning('请输入 DeepSeek API Key');
+    return;
+  }
+  localStorage.setItem(DEEPSEEK_KEY, deepseekApiKey.value.trim());
+  deepseekKeySaved.value = true;
+  ElMessage.success('DeepSeek API Key 已保存');
+  setTimeout(() => { deepseekKeySaved.value = false; }, 3000);
+};
+
+const handleClearDeepseekKey = () => {
+  deepseekApiKey.value = '';
+  localStorage.removeItem(DEEPSEEK_KEY);
+  deepseekTestResult.value = null;
+  ElMessage.info('DeepSeek API Key 已清除');
+};
+
+const handleTestDeepseekKey = async () => {
+  if (!deepseekApiKey.value.trim()) {
+    ElMessage.warning('请先输入 API Key');
+    return;
+  }
+  deepseekIsTesting.value = true;
+  deepseekTestResult.value = null;
+  try {
+    const response = await fetch('https://api.deepseek.com/v1/models', {
+      headers: { 'Authorization': `Bearer ${deepseekApiKey.value.trim()}` }
+    });
+    if (response.ok) {
+      deepseekTestResult.value = { success: true, message: '连接成功！API Key 有效' };
+      ElMessage.success('DeepSeek API Key 验证通过');
+    } else {
+      const err = await response.json().catch(() => ({}));
+      deepseekTestResult.value = { success: false, message: `验证失败 (${response.status}): ${err.error?.message || '请检查 API Key'}` };
+    }
+  } catch (e) {
+    deepseekTestResult.value = { success: false, message: `网络错误: ${e.message}` };
+  } finally {
+    deepseekIsTesting.value = false;
+  }
+};
 
 const API_STORAGE_KEY = 'tester_credentials';
 const FACTORY_STORAGE_KEY = 'factory_data_login_record';
@@ -319,41 +370,16 @@ const handleApiLogin = async () => {
   apiIsLogging.value = true;
   apiLoginMessage.value = '';
   try {
-    const passwordMd5 = CryptoJS.MD5(apiLoginForm.password).toString();
-    const params = new URLSearchParams();
-    params.append('tenantId', '000000');
-    params.append('username', apiLoginForm.username);
-    params.append('password', passwordMd5);
-    params.append('grant_type', 'password');
-    params.append('scope', 'all');
-    params.append('type', 'account');
-    const response = await fetch(API_LOGIN_URL + '?' + params.toString(), {
-      method: 'POST',
-      headers: {
-        'Authorization': API_AUTH_HEADER,
-        'accept': 'application/json, text/plain, */*',
-        'origin': 'https://mp.holyview.cn:9443',
-        'referer': 'https://mp.holyview.cn:9443/',
-        'tenant-id': '000000'
-      }
-    });
-    const result = await response.json();
-    if (result.code === 200 && result.data && result.data.access_token) {
+    const result = await performLogin('mp', apiLoginForm.username, apiLoginForm.password);
+    if (result.success) {
       apiIsLoggedIn.value = true;
       apiAccountInfo.value = result.data;
       saveApiLoginRecord(result.data);
       apiLoginMessage.value = '登录成功！';
-      updateLoginStatus('mp', true);
-      saveUnifiedCredentials('mp', {
-        tenantId: '000000',
-        username: apiLoginForm.username,
-        password: passwordMd5,
-        accessToken: result.data.access_token,
-        tokenExpire: Date.now() + (result.data.expires_in || 7200) * 1000
-      });
+      // performLogin 已自动调用 updateLoginStatus('mp', true) 和 saveCredentials
       ElMessage.success('云系统登录成功');
     } else {
-      apiLoginMessage.value = result.msg || '登录失败';
+      apiLoginMessage.value = result.message || '登录失败';
     }
   } catch (error) {
     apiLoginMessage.value = '登录请求失败：' + error.message;
@@ -370,41 +396,16 @@ const handleFactoryLogin = async () => {
   factoryIsLogging.value = true;
   factoryLoginMessage.value = '';
   try {
-    const passwordMd5 = CryptoJS.MD5(factoryLoginForm.password).toString();
-    const params = new URLSearchParams();
-    params.append('tenantId', '000000');
-    params.append('username', factoryLoginForm.username);
-    params.append('password', passwordMd5);
-    params.append('grant_type', 'password');
-    params.append('scope', 'all');
-    params.append('type', 'account');
-    const response = await fetch(FACTORY_LOGIN_URL + '?' + params.toString(), {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'Authorization': FACTORY_AUTH_HEADER,
-        'Tenant-Id': '000000',
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      credentials: 'include'
-    });
-    const result = await response.json();
-    if (result.code === 200 && result.data && result.data.access_token) {
+    const result = await performLogin('iot', factoryLoginForm.username, factoryLoginForm.password);
+    if (result.success) {
       factoryIsLoggedIn.value = true;
       factoryAccountInfo.value = result.data;
       saveFactoryLoginRecord(result.data);
       factoryLoginMessage.value = '登录成功！';
-      updateLoginStatus('smart', true);
-      saveUnifiedCredentials('smart', {
-        tenantId: '000000',
-        username: factoryLoginForm.username,
-        password: passwordMd5,
-        accessToken: result.data.access_token,
-        tokenExpire: Date.now() + (result.data.expires_in || 7200) * 1000
-      });
+      // performLogin 已自动同步 updateLoginStatus('smart', true) + saveCredentials
       ElMessage.success('智能制造系统登录成功');
     } else {
-      factoryLoginMessage.value = result.msg || '登录失败';
+      factoryLoginMessage.value = result.message || '登录失败';
     }
   } catch (error) {
     factoryLoginMessage.value = '登录请求失败：' + error.message;
@@ -830,6 +831,97 @@ onUnmounted(() => {
       </div>
 
       <div class="auth-container">
+        <!-- DeepSeek API Key 配置 -->
+        <div class="auth-card deepseek-card">
+          <div class="auth-header">
+            <div class="auth-icon deepseek">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </div>
+            <h3>DeepSeek AI</h3>
+            <span class="auth-domain">api.deepseek.com</span>
+            <span v-if="deepseekApiKey" class="status-badge logged">已配置</span>
+            <span v-else class="status-badge unlogged">未配置</span>
+          </div>
+
+          <div class="auth-form">
+            <div class="form-group">
+              <label>API Key</label>
+              <div class="input-with-dropdown">
+                <input
+                  v-model="deepseekApiKey"
+                  :type="deepseekShowKey ? 'text' : 'password'"
+                  class="form-input key-input-monospace"
+                  placeholder="请输入 DeepSeek API Key（sk-...）"
+                />
+                <button
+                  type="button"
+                  class="dropdown-toggle"
+                  @click="deepseekShowKey = !deepseekShowKey"
+                  :title="deepseekShowKey ? '隐藏' : '显示'"
+                >
+                  <svg v-if="!deepseekShowKey" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                    <line x1="1" y1="1" x2="23" y2="23"/>
+                  </svg>
+                </button>
+              </div>
+              <p class="key-hint">
+                获取 API Key：
+                <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener">platform.deepseek.com</a>
+              </p>
+            </div>
+
+            <div v-if="deepseekTestResult" class="form-message" :class="deepseekTestResult.success ? 'success' : 'error'">
+              {{ deepseekTestResult.message }}
+            </div>
+
+            <div v-if="deepseekKeySaved" class="form-message success">
+              API Key 已保存成功
+            </div>
+
+            <div class="form-actions">
+              <button
+                v-if="!deepseekApiKey"
+                class="auth-btn primary"
+                :disabled="!deepseekApiKey.trim()"
+                @click="handleSaveDeepseekKey"
+              >
+                保存 Key
+              </button>
+              <template v-else>
+                <button
+                  class="sync-btn"
+                  :disabled="deepseekIsTesting"
+                  @click="handleTestDeepseekKey"
+                >
+                  <svg v-if="!deepseekIsTesting" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                  </svg>
+                  <span>{{ deepseekIsTesting ? '测试中...' : '测试连接' }}</span>
+                </button>
+                <button class="auth-btn primary" @click="handleSaveDeepseekKey">
+                  更新 Key
+                </button>
+                <button class="auth-btn danger-outline" @click="handleClearDeepseekKey">
+                  清除
+                </button>
+              </template>
+            </div>
+          </div>
+        </div>
+
         <div class="auth-card">
           <div class="auth-header">
             <div class="auth-icon api">
@@ -1683,6 +1775,44 @@ onUnmounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ============== DeepSeek 配置卡片 ============== */
+.auth-icon.deepseek {
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366F1;
+}
+
+.key-input-monospace {
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', 'Courier New', monospace;
+  font-size: 13px !important;
+  letter-spacing: 0.5px;
+}
+
+.key-hint {
+  font-size: 11px;
+  color: #94A3B8;
+  margin-top: 4px;
+}
+
+.key-hint a {
+  color: #165DFF;
+  text-decoration: none;
+}
+
+.key-hint a:hover {
+  text-decoration: underline;
+}
+
+.auth-btn.danger-outline {
+  background: #fff;
+  color: #EF4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.auth-btn.danger-outline:hover {
+  background: rgba(239, 68, 68, 0.05);
+  border-color: #EF4444;
 }
 
 /* 响应式 */

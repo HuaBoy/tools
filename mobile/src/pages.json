@@ -1,0 +1,116 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^u-(.*)": "@dcloudio/uni-ui/lib/u-$1/u-$1.vue"
+    }
+  },
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "AI运维执行平台",
+        "navigationBarBackgroundColor": "#165DFF",
+        "navigationBarTextStyle": "white"
+      }
+    },
+    {
+      "path": "pages/login/login",
+      "style": {
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/diagnosis/index",
+      "style": {
+        "navigationBarTitleText": "智能诊断"
+      }
+    },
+    {
+      "path": "pages/data/index",
+      "style": {
+        "navigationBarTitleText": "AI起爆数据"
+      }
+    },
+    {
+      "path": "pages/hardware/index",
+      "style": {
+        "navigationBarTitleText": "硬件管理"
+      }
+    },
+    {
+      "path": "pages/hardware/chip/index",
+      "style": {
+        "navigationBarTitleText": "芯片管理"
+      }
+    },
+    {
+      "path": "pages/hardware/firmware/index",
+      "style": {
+        "navigationBarTitleText": "固件升级"
+      }
+    },
+    {
+      "path": "pages/knowledge/index",
+      "style": {
+        "navigationBarTitleText": "AI知识库"
+      }
+    },
+    {
+      "path": "pages/tools/index",
+      "style": {
+        "navigationBarTitleText": "通用工具"
+      }
+    },
+    {
+      "path": "pages/admin/index",
+      "style": {
+        "navigationBarTitleText": "系统管理"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "AI起爆运维",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#F5F7FA"
+  },
+  "tabBar": {
+    "color": "#86909C",
+    "selectedColor": "#165DFF",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "AI工作台",
+        "iconPath": "static/icons/home.png",
+        "selectedIconPath": "static/icons/home-active.png"
+      },
+      {
+        "pagePath": "pages/diagnosis/index",
+        "text": "诊断",
+        "iconPath": "static/icons/diagnosis.png",
+        "selectedIconPath": "static/icons/diagnosis-active.png"
+      },
+      {
+        "pagePath": "pages/hardware/index",
+        "text": "硬件",
+        "iconPath": "static/icons/hardware.png",
+        "selectedIconPath": "static/icons/hardware-active.png"
+      },
+      {
+        "pagePath": "pages/tools/index",
+        "text": "工具",
+        "iconPath": "static/icons/tools.png",
+        "selectedIconPath": "static/icons/tools-active.png"
+      },
+      {
+        "pagePath": "pages/admin/index",
+        "text": "我的",
+        "iconPath": "static/icons/admin.png",
+        "selectedIconPath": "static/icons/admin-active.png"
+      }
+    ]
+  }
+}

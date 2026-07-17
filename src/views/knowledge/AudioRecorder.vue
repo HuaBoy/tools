@@ -164,10 +164,54 @@ const startRecording = async () => {
   try {
     speechError.value = '';
 
-    // 1. 请求麦克风权限
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // 1. 检查浏览器是否支持 getUserMedia
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      // 尝试兼容性处理：在旧版浏览器中，getUserMedia 可能位于 navigator 对象上
+      if (!navigator.getUserMedia) {
+        throw new Error('浏览器不支持录音功能。请使用 Chrome、Edge 等现代浏览器，并确保使用 HTTPS 连接。');
+      }
+    }
 
-    // 2. 初始化 MediaRecorder
+    // 2. 检查安全上下文（HTTPS 或 localhost）
+    const isSecureContext = window.isSecureContext || 
+                          location.protocol === 'https:' || 
+                          location.hostname === 'localhost' || 
+                          location.hostname === '127.0.0.1';
+    
+    if (!isSecureContext) {
+      console.warn('录音功能在非安全上下文中可能受限。建议使用 HTTPS 或 localhost 访问。');
+    }
+
+    // 3. 检查浏览器兼容性并请求麦克风权限
+    let stream;
+    try {
+      // 首先尝试标准的 mediaDevices API
+      stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+    } catch (mediaError) {
+      // 如果标准 API 失败，尝试旧版 API（兼容性处理）
+      console.warn('标准 getUserMedia API 失败，尝试旧版 API:', mediaError);
+      
+      if (navigator.getUserMedia) {
+        // 旧版 API（Promise 包装）
+        stream = await new Promise((resolve, reject) => {
+          navigator.getUserMedia(
+            { audio: true },
+            (s) => resolve(s),
+            (e) => reject(e)
+          );
+        });
+      } else {
+        throw mediaError; // 重新抛出原始错误
+      }
+    }
+
+    // 3. 初始化 MediaRecorder
     mediaRecorder = new MediaRecorder(stream);
     audioChunks = [];
 
@@ -190,7 +234,7 @@ const startRecording = async () => {
 
     mediaRecorder.start();
 
-    // 3. 启动 Web Speech API（实时转写）
+    // 4. 启动 Web Speech API（实时转写）
     recognition = initSpeechRecognition();
     if (recognition) {
       try {
@@ -200,7 +244,7 @@ const startRecording = async () => {
       }
     }
 
-    // 4. 重置状态
+    // 5. 重置状态
     isRecording.value = true;
     isPaused.value = false;
     transcript.value = '';
@@ -208,7 +252,7 @@ const startRecording = async () => {
     recordingStartTime.value = Date.now();
     recordingDuration.value = 0;
 
-    // 5. 启动计时器
+    // 6. 启动计时器
     timerInterval = setInterval(() => {
       if (!isPaused.value) {
         recordingDuration.value = Math.floor((Date.now() - recordingStartTime.value) / 1000);
@@ -220,9 +264,17 @@ const startRecording = async () => {
   } catch (e) {
     console.error('录音失败:', e);
     if (e.name === 'NotAllowedError') {
-      ElMessage.error('麦克风权限被拒绝');
+      ElMessage.error('麦克风权限被拒绝。请在浏览器设置中允许麦克风访问。');
     } else if (e.name === 'NotFoundError') {
-      ElMessage.error('未找到麦克风设备');
+      ElMessage.error('未找到麦克风设备。请确保麦克风已连接并正常工作。');
+    } else if (e.name === 'NotReadableError') {
+      ElMessage.error('无法访问麦克风。可能是其他应用正在使用麦克风。');
+    } else if (e.name === 'SecurityError' || e.message.includes('security') || e.message.includes('secure')) {
+      ElMessage.error('安全限制：请在 HTTPS 环境下使用录音功能，或使用 localhost 访问。\n当前环境：' + location.protocol + '//' + location.host);
+    } else if (e.name === 'TypeError' && e.message.includes('getUserMedia')) {
+      ElMessage.error('浏览器不支持录音功能。请使用最新版本的 Chrome、Edge、Firefox 或 Safari。');
+    } else if (e.message.includes('不支持录音功能')) {
+      ElMessage.error(e.message);
     } else {
       ElMessage.error('录音启动失败: ' + e.message);
     }
@@ -519,9 +571,16 @@ const totalRecordings = computed(() => recordings.value.length);
 // ==================== 生命周期 ====================
 onMounted(() => {
   loadRecordingsList();
+  
   // 检测语音识别支持
   if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
     isSpeechSupported.value = false;
+  }
+  
+  // 检测媒体设备支持
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    console.warn('浏览器不支持 mediaDevices API，录音功能不可用');
+    // 可以在界面上显示警告
   }
 });
 

@@ -129,7 +129,7 @@ export const adminApi = {
       { id: 'data_query', name: '批次数据追溯', key: 'data_query', description: '支持数据导出', enabled: true, order: 4 },
       { id: 'factory_data', name: '工厂数据查询', key: 'factory_data', description: '支持登录、数据保存、设备类型和批次号查询', enabled: true, order: 5 },
       { id: 'third_party_auth', name: '三方账号授权', key: 'third_party_auth', description: '整合API测试助手和工厂数据查询的登录功能', enabled: true, order: 6 },
-      { id: 'knowledge_base', name: 'AI问题数据库', key: 'knowledge_base', description: 'AI问题查询', enabled: true, order: 7 },
+      { id: 'knowledge_base', name: '智能知识库(RAG)', key: 'knowledge_base', description: 'AI问题查询', enabled: true, order: 7 },
       { id: 'ai_translate', name: 'AI翻译工具', key: 'ai_translate', description: '多语言翻译', enabled: true, order: 8 },
       { id: 'qr_code', name: '二维码生成', key: 'qr_code', description: '生成常规二维码', enabled: true, order: 9 },
       { id: 'ai_assistant', name: 'AI运维智能助手', key: 'ai_assistant', description: 'AI运维辅助', enabled: true, order: 10 }

@@ -1,0 +1,1 @@
+import{R as s,r as i}from"./index-NWrvx90-.js";const l=s("logs",()=>{const e=i([]);function o(n,a,r=""){e.value.unshift({id:Date.now(),time:new Date().toLocaleString("zh-CN"),action:n,module:a,detail:r}),e.value.length>100&&e.value.pop()}function t(){e.value=[]}return{operationLogs:e,addLog:o,clearLogs:t}});export{l as u};

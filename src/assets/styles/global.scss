@@ -91,7 +91,7 @@ body {
 
 .page-enter-active,
 .page-leave-active {
-  transition: opacity $transition-normal;
+  transition: opacity 0.15s ease;
 }
 
 .page-enter-from,

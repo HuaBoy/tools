@@ -1,0 +1,10 @@
+[      57ms] [LOG] [Supabase] 配置状态: 已配置 @ http://localhost:3000/src/utils/supabase.js:20
+[      70ms] [WARNING] [Vue Router warn]: <router-view> can no longer be used directly inside <transition> or <keep-alive>.
+Use slot props instead:
+
+<router-view v-slot="{ Component }">
+  <transition>
+    <component :is="Component" />
+  </transition>
+</router-view> @ http://localhost:3000/node_modules/.vite/deps/vue-router.js?v=547392e1:206
+[     303ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:3000/data/query:0

@@ -7,7 +7,7 @@ import { useRoute } from 'vue-router';
 import CryptoJS from 'crypto-js';
 import { saveCredentials as saveCred, clearCredentials as clearCred, updateLoginStatus, loginStatus, onLoginStatusChange } from '@/utils/loginStatus.js';
 import { requestWithAutoRelogin } from '@/utils/autoRelogin.js';
-import { showLoginDialog } from '@/utils/platformLogin.js';
+import { showLoginDialog, performLogin } from '@/utils/platformLogin.js';
 import { getTenantName, getTenantOptions } from '@/utils/tenant.js';
 const logsStore = useLogsStore();
 const route = useRoute();
@@ -40,6 +40,7 @@ const searchForm = reactive({
   modeTypeDiyText: '批次号',
   mode: '',
   batchNo: '',
+  idHex: '',
   blastTenantId: '',
   current: 1,
   size: 10
@@ -49,6 +50,7 @@ const filterOptions = ref([
   { key: 'deviceType', label: '设备类型' },
   { key: 'modeTypeDiy', label: '查询模式' },
   { key: 'batchNo', label: '批次号' },
+  { key: 'idHex', label: '低压ID' },
   { key: 'blastTenantId', label: '租户ID' },
 ]);
 
@@ -56,6 +58,7 @@ const filterChecked = reactive({
   deviceType: true,
   modeTypeDiy: true,
   batchNo: true,
+  idHex: true,
   blastTenantId: false,
 });
 
@@ -299,37 +302,21 @@ const handleLogin = async () => {
   loginMessage.value = '';
   
   try {
-    const passwordMd5 = CryptoJS.MD5(loginForm.password).toString();
-    const params = new URLSearchParams();
-    params.append('tenantId', '000000');
-    params.append('username', loginForm.username);
-    params.append('password', passwordMd5);
-    params.append('grant_type', 'password');
-    params.append('scope', 'all');
-    params.append('type', 'account');
+    const result = await performLogin('iot', loginForm.username, loginForm.password);
     
-    const response = await fetch(LOGIN_URL + '?' + params.toString(), {
-      method: 'POST',
-      headers: loginHeaders,
-      credentials: 'include'
-    });
-    
-    const result = await response.json();
-    
-    if (result.code === 200 && result.data && result.data.access_token) {
+    if (result.success) {
       loginSuccess.value = true;
       loginMessage.value = '登录成功！';
       isLoggedIn.value = true;
       accountInfo.value = result.data;
       saveLoginRecord(result.data);
 
-      // 同步登录状态到顶部菜单栏（智能制造平台）
-      updateLoginStatus('smart', true);
-      // 保存到统一凭据管理
+      // performLogin 已自动同步全局状态（updateLoginStatus、saveCredentials）
+      // 额外保存 FactoryDataQuery 特有的登录记录
       saveCred('smart', {
         tenantId: '000000',
         username: loginForm.username,
-        password: passwordMd5,
+        password: CryptoJS.MD5(loginForm.password).toString(),
         accessToken: result.data.access_token,
         tokenExpire: Date.now() + 30 * 24 * 60 * 60 * 1000
       });
@@ -343,7 +330,7 @@ const handleLogin = async () => {
       }
     } else {
       loginSuccess.value = false;
-      loginMessage.value = result.msg || '登录失败，请检查用户名和密码';
+      loginMessage.value = result.message || '登录失败，请检查用户名和密码';
     }
   } catch (error) {
     loginSuccess.value = false;
@@ -402,6 +389,9 @@ const handleSearch = async () => {
     }
     if (searchForm.batchNo) {
       params.append('batchNo', searchForm.batchNo);
+    }
+    if (searchForm.idHex) {
+      params.append('idHex', searchForm.idHex);
     }
     if (searchForm.blastTenantId) {
       params.append('blastTenantId', searchForm.blastTenantId);
@@ -627,6 +617,11 @@ onMounted(() => {
   if (route.query.batchNo) {
     searchForm.batchNo = route.query.batchNo;
   }
+  if (route.query.idHex) {
+    searchForm.idHex = route.query.idHex;
+    // 确保低压ID筛选项可见
+    filterChecked.idHex = true;
+  }
   if (route.query.deviceType) {
     searchForm.deviceType = route.query.deviceType;
     handleDeviceTypeChange(route.query.deviceType);
@@ -667,6 +662,17 @@ watch(() => route.query.batchNo, (newBatchNo) => {
       searchForm.deviceType = route.query.deviceType;
       handleDeviceTypeChange(route.query.deviceType);
     }
+    if (isLoggedIn.value) {
+      handleSearch();
+    }
+  }
+});
+
+watch(() => route.query.idHex, (newIdHex) => {
+  if (newIdHex) {
+    searchForm.idHex = newIdHex;
+    searchForm.current = 1;
+    filterChecked.idHex = true;
     if (isLoggedIn.value) {
       handleSearch();
     }
@@ -794,6 +800,16 @@ watch(() => route.query.batchNo, (newBatchNo) => {
               type="text"
               class="form-input"
               placeholder="请输入批次号"
+            />
+          </div>
+          
+          <div v-if="isFilterVisible('idHex')" class="form-group">
+            <label>低压ID</label>
+            <input 
+              v-model="searchForm.idHex"
+              type="text"
+              class="form-input"
+              placeholder="请输入低压ID"
             />
           </div>
           

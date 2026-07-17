@@ -13,8 +13,10 @@ defineProps({
 
 <template>
   <div class="glass-card-wrapper">
-    <div v-if="title" class="card-header">
-      <span class="title-text">{{ title }}</span>
+    <div v-if="title || $slots.header" class="card-header">
+      <slot name="header">
+        <span class="title-text">{{ title }}</span>
+      </slot>
     </div>
     <div class="card-body" :class="{ 'no-padding': noPadding }">
       <slot></slot>
@@ -41,6 +43,8 @@ defineProps({
 }
 
 .card-header {
+  display: flex;
+  align-items: center;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-color);
   background: rgba(22, 93, 255, 0.05);

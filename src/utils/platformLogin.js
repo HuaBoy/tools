@@ -121,6 +121,82 @@ export const isPlatformLoggedIn = (platform) => {
   return true;
 };
 
+// 全局登录后同步（确保所有入口登录成功后状态一致）
+const syncGlobalLoginState = (platform, username, passwordMd5, accessToken, expiresIn) => {
+  const config = PLATFORMS[platform];
+  if (!config) return;
+
+  const tokenExpire = Date.now() + (expiresIn || 7200) * 1000;
+
+  // 1. 保存 token 到对应 key
+  localStorage.setItem(config.tokenKey, accessToken);
+
+  // 2. 保存凭据到统一管理
+  saveCredentials(platform, {
+    tenantId: '000000',
+    username,
+    password: passwordMd5,
+    accessToken,
+    tokenExpire
+  });
+
+  // 3. 更新全局登录状态（触发 Header 刷新）
+  updateLoginStatus(platform, true);
+
+  // 4. mp 平台额外同步：兼容 DataQuery.vue 等页面读取 mp_token
+  if (platform === 'mp') {
+    localStorage.setItem('mp_token', accessToken);
+    localStorage.setItem('mp_token_expire', String(tokenExpire));
+    localStorage.setItem('mp_username', username);
+  }
+
+  // 5. iot/smart 平台联动：iot 登录 → smart 也标记为已登录
+  if (platform === 'iot' || platform === 'smart') {
+    updateLoginStatus('smart', true);
+    localStorage.setItem(PLATFORMS.smart.tokenKey, accessToken);
+    saveCredentials('smart', {
+      tenantId: '000000',
+      username,
+      password: passwordMd5,
+      accessToken,
+      tokenExpire
+    });
+    // 兼容 FactoryDataQuery.vue 读取的 key
+    if (platform === 'iot') {
+      localStorage.setItem('iot_token', accessToken);
+    }
+  }
+
+  // 6. 保存到账号历史
+  const listKey = platform === 'mp' ? 'api_accounts_list' : 'factory_accounts_list';
+  try {
+    const list = JSON.parse(localStorage.getItem(listKey) || '[]');
+    const now = Date.now();
+    const existingIndex = list.findIndex(item => item.username === username);
+    if (existingIndex > -1) {
+      list[existingIndex].password = passwordMd5;
+      list[existingIndex].lastUsedTime = now;
+    } else {
+      list.push({ username, password: passwordMd5, lastUsedTime: now });
+    }
+    list.sort((a, b) => b.lastUsedTime - a.lastUsedTime);
+    if (list.length > 10) list.splice(10);
+    localStorage.setItem(listKey, JSON.stringify(list));
+  } catch (e) {
+    // ignore
+  }
+
+  // 7. 保存到跨平台最新登录记录
+  localStorage.setItem('unified_latest_login', JSON.stringify({
+    username,
+    password: passwordMd5,
+    platform,
+    lastUsedTime: Date.now()
+  }));
+
+  console.log(`[全局登录同步] ${config.name} 登录成功，Header 状态已同步`);
+};
+
 // 执行登录
 export const performLogin = async (platform, username, password) => {
   const config = PLATFORMS[platform];
@@ -169,68 +245,19 @@ export const performLogin = async (platform, username, password) => {
 
     const result = await response.json();
     if (result.code === 200 && result.data && result.data.access_token) {
-      // 保存 token
-      localStorage.setItem(config.tokenKey, result.data.access_token);
-      // 保存凭据
-      saveCredentials(platform, {
-        tenantId: '000000',
-        username,
-        password: passwordMd5,
-        accessToken: result.data.access_token,
-        tokenExpire: Date.now() + (result.data.expires_in || 7200) * 1000
-      });
-      // 更新登录状态
-      updateLoginStatus(platform, true);
+      // 统一同步全局登录状态（Header、token、凭据、历史记录）
+      syncGlobalLoginState(platform, username, passwordMd5, result.data.access_token, result.data.expires_in);
 
-      // iot 平台智能制造系统是同一组凭据，同时更新 smart 状态和凭据
-      if (platform === 'iot') {
-        updateLoginStatus('smart', true);
-        // 智能制造 tokenKey 同步
-        localStorage.setItem(PLATFORMS.smart.tokenKey, result.data.access_token);
-        // 智能制造凭据也保存（兼容 ThirdPartyAuth 等地方读 smart key）
-        saveCredentials('smart', {
-          tenantId: '000000',
-          username,
-          password: passwordMd5,
-          accessToken: result.data.access_token,
-          tokenExpire: Date.now() + (result.data.expires_in || 7200) * 1000
-        });
-      }
-
-      // 保存到账号历史
-      const listKey = platform === 'mp' ? 'api_accounts_list' : 'factory_accounts_list';
-      try {
-        const list = JSON.parse(localStorage.getItem(listKey) || '[]');
-        const now = Date.now();
-        const existingIndex = list.findIndex(item => item.username === username);
-        if (existingIndex > -1) {
-          list[existingIndex].password = password;
-          list[existingIndex].lastUsedTime = now;
-        } else {
-          list.push({ username, password, lastUsedTime: now });
-        }
-        list.sort((a, b) => b.lastUsedTime - a.lastUsedTime);
-        if (list.length > 10) list.splice(10);
-        localStorage.setItem(listKey, JSON.stringify(list));
-      } catch (e) {
-        // ignore
-      }
-
-      // 保存到跨平台最新
-      localStorage.setItem('unified_latest_login', JSON.stringify({
-        username,
-        password,
-        platform,
-        lastUsedTime: Date.now()
-      }));
-
-      return { success: true };
+      return { success: true, data: result.data };
     }
     return { success: false, message: result.msg || '登录失败' };
   } catch (error) {
     return { success: false, message: '登录请求失败：' + error.message };
   }
 };
+
+// 暴露同步函数供外部直接调用（用于已有独立登录逻辑的页面改造）
+export { syncGlobalLoginState };
 
 // 登录弹窗状态（全局共享）
 export const loginDialogState = reactive({

@@ -1,0 +1,19 @@
+- generic [ref=e5]:
+  - generic [ref=e6]:
+    - img [ref=e8]
+    - heading "AI起爆一体化工具集" [level=1] [ref=e12]
+    - paragraph [ref=e13]: 请登录系统
+  - generic [ref=e14]:
+    - generic [ref=e15]:
+      - generic [ref=e16]: 用户名
+      - textbox "请输入用户名" [ref=e17]
+    - generic [ref=e18]:
+      - generic [ref=e19]: 密码
+      - textbox "请输入密码（默认：123456）" [ref=e20]
+    - button "登录" [ref=e21] [cursor=pointer]
+  - generic [ref=e22]:
+    - paragraph [ref=e23]: 默认密码：123456
+    - paragraph [ref=e24]: 账号登录后，2天无操作将自动退出
+  - paragraph [ref=e26]:
+    - text: 还没有账号？
+    - button "立即注册" [ref=e27] [cursor=pointer]

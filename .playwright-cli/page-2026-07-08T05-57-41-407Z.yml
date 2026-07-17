@@ -1,0 +1,157 @@
+- generic [ref=f3e3]:
+  - banner [ref=f3e4]:
+    - generic [ref=f3e5]:
+      - img [ref=f3e7]
+      - generic [ref=f3e11]: AI起爆一体化工具集
+    - generic [ref=f3e12]:
+      - generic [ref=f3e13]:
+        - generic:
+          - generic: 云平台 未登录
+        - generic:
+          - generic: 智能制造 未登录
+      - generic:
+        - generic: 授权有效 · 2天
+      - generic [ref=f3e14]:
+        - textbox "全局搜索" [ref=f3e15]
+        - button [ref=f3e16] [cursor=pointer]:
+          - img [ref=f3e17]
+      - button "退出" [ref=f3e20] [cursor=pointer]:
+        - img [ref=f3e21]
+        - generic [ref=f3e24]: 退出
+  - complementary [ref=f3e26]:
+    - generic [ref=f3e27]:
+      - navigation [ref=f3e28]:
+        - generic [ref=f3e29] [cursor=pointer]:
+          - generic [ref=f3e31]:
+            - generic [ref=f3e32]: AI 执行工作台
+            - text: 对话式运维入口
+          - generic [ref=f3e33]: →
+        - generic [ref=f3e35]:
+          - generic [ref=f3e36] [cursor=pointer]:
+            - img [ref=f3e38]
+            - generic [ref=f3e41]: 智能诊断
+            - img [ref=f3e42]
+          - generic [ref=f3e44]:
+            - generic [ref=f3e45] [cursor=pointer]:
+              - img [ref=f3e47]
+              - generic [ref=f3e49]: AI 诊断工作台
+            - generic [ref=f3e50] [cursor=pointer]:
+              - img [ref=f3e52]
+              - generic [ref=f3e54]: 起爆器日志AI分析
+            - generic [ref=f3e55] [cursor=pointer]:
+              - img [ref=f3e57]
+              - generic [ref=f3e60]: 日志解密工具
+            - generic [ref=f3e61] [cursor=pointer]:
+              - img [ref=f3e63]
+              - generic [ref=f3e67]: 全链路追溯
+        - generic [ref=f3e68]:
+          - generic [ref=f3e69] [cursor=pointer]:
+            - img [ref=f3e71]
+            - generic [ref=f3e74]: 自动报告
+            - img [ref=f3e75]
+          - generic [ref=f3e77]:
+            - generic [ref=f3e78] [cursor=pointer]:
+              - img [ref=f3e80]
+              - generic [ref=f3e82]: 批次数据追溯
+            - generic [ref=f3e83] [cursor=pointer]:
+              - img [ref=f3e85]
+              - generic [ref=f3e87]: AI起爆数据查询
+            - generic [ref=f3e88] [cursor=pointer]:
+              - img [ref=f3e90]
+              - generic [ref=f3e92]: 数据大屏
+        - generic [ref=f3e93]:
+          - generic [ref=f3e94] [cursor=pointer]:
+            - img [ref=f3e96]
+            - generic [ref=f3e98]: 自动化任务
+            - img [ref=f3e99]
+          - generic [ref=f3e101]:
+            - generic [ref=f3e102] [cursor=pointer]:
+              - img [ref=f3e104]
+              - generic [ref=f3e106]: 授权码转换工具
+            - generic [ref=f3e107] [cursor=pointer]:
+              - img [ref=f3e109]
+              - generic [ref=f3e111]: 三方账号授权
+            - generic [ref=f3e112] [cursor=pointer]:
+              - img [ref=f3e114]
+              - generic [ref=f3e116]: SOP流程执行
+            - generic [ref=f3e117] [cursor=pointer]:
+              - img [ref=f3e119]
+              - generic [ref=f3e121]: 云系统
+        - generic [ref=f3e122]:
+          - generic [ref=f3e123] [cursor=pointer]:
+            - img [ref=f3e125]
+            - generic [ref=f3e128]: 硬件管理
+            - img [ref=f3e129]
+          - generic [ref=f3e131]:
+            - generic [ref=f3e132]:
+              - img [ref=f3e134]
+              - generic [ref=f3e136]: 设备管理
+              - generic [ref=f3e137]: 即将上线
+            - generic [ref=f3e138]:
+              - img [ref=f3e140]
+              - generic [ref=f3e143]: 芯片管理
+              - generic [ref=f3e144]: 即将上线
+            - generic [ref=f3e145]:
+              - img [ref=f3e147]
+              - generic [ref=f3e151]: 固件升级
+              - generic [ref=f3e152]: 即将上线
+        - generic [ref=f3e153]:
+          - generic [ref=f3e154] [cursor=pointer]:
+            - img [ref=f3e156]
+            - generic [ref=f3e159]: AI知识库
+            - img [ref=f3e160]
+          - generic [ref=f3e162]:
+            - generic [ref=f3e163] [cursor=pointer]:
+              - img [ref=f3e165]
+              - generic [ref=f3e167]: AI问题数据库
+            - generic [ref=f3e168] [cursor=pointer]:
+              - img [ref=f3e170]
+              - generic [ref=f3e172]: 起爆器版本手册
+            - generic [ref=f3e173] [cursor=pointer]:
+              - img [ref=f3e175]
+              - generic [ref=f3e177]: 版本履历
+            - generic [ref=f3e178] [cursor=pointer]:
+              - img [ref=f3e180]
+              - generic [ref=f3e182]: 录音管理
+            - generic [ref=f3e183] [cursor=pointer]:
+              - img [ref=f3e185]
+              - generic [ref=f3e187]: 智能制造系统
+        - generic [ref=f3e188]:
+          - generic [ref=f3e189] [cursor=pointer]:
+            - img [ref=f3e191]
+            - generic [ref=f3e193]: 通用工具
+            - img [ref=f3e194]
+          - generic [ref=f3e196]:
+            - generic [ref=f3e197] [cursor=pointer]:
+              - img [ref=f3e199]
+              - generic [ref=f3e201]: AI翻译工具
+            - generic [ref=f3e202] [cursor=pointer]:
+              - img [ref=f3e204]
+              - generic [ref=f3e206]: 文档格式转换
+            - generic [ref=f3e207] [cursor=pointer]:
+              - img [ref=f3e209]
+              - generic [ref=f3e211]: 二维码生成工具
+            - generic [ref=f3e212] [cursor=pointer]:
+              - img [ref=f3e214]
+              - generic [ref=f3e216]: 远程手机控制
+        - generic [ref=f3e217]:
+          - generic [ref=f3e218] [cursor=pointer]:
+            - img [ref=f3e220]
+            - generic [ref=f3e223]: 系统管理
+            - img [ref=f3e224]
+          - generic [ref=f3e226]:
+            - generic [ref=f3e227] [cursor=pointer]:
+              - img [ref=f3e229]
+              - generic [ref=f3e231]: 后台管理
+            - generic [ref=f3e232] [cursor=pointer]:
+              - img [ref=f3e234]
+              - generic [ref=f3e236]: 用户管理
+            - generic [ref=f3e237] [cursor=pointer]:
+              - img [ref=f3e239]
+              - generic [ref=f3e241]: 权限管理
+            - generic [ref=f3e242] [cursor=pointer]:
+              - img [ref=f3e244]
+              - generic [ref=f3e246]: 功能管理
+      - generic [ref=f3e247]:
+        - paragraph [ref=f3e248]: AI 运维执行平台 V2.0
+        - paragraph [ref=f3e249]: Agent 模式 · 多端适配
