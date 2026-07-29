@@ -1,0 +1,4 @@
+{"level":"info","mode":"release","port":8080,"supabase_configured":true,"time":"2026-07-23T15:34:07+08:00","message":"启动 tester-platform backend"}
+{"level":"info","addr":"0.0.0.0:8080","time":"2026-07-23T15:34:07+08:00","message":"服务监听中..."}
+{"level":"info","method":"GET","path":"/api/v1/overseas-shipping","status":401,"ip":"::1","latency":0,"error":"","time":"2026-07-23T15:34:09+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/overseas-shipping/1","status":401,"ip":"::1","latency":0,"error":"","time":"2026-07-23T15:34:09+08:00","message":"HTTP Request"}

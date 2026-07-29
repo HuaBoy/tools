@@ -27,12 +27,13 @@ export default defineConfig({
         ws: true
       },
       '/api/v1': {
-        target: 'http://您的阿里云服务器IP:8080',
+        target: 'http://111.231.16.110',
         changeOrigin: true,
         secure: false,
         ws: false
       },
-      '/api': {
+      // 盛景平台登录（第三方 holyview），需保留，且必须在 /api 之前匹配
+      '/api/blade-auth': {
         target: 'https://mp.holyview.cn:9443',
         changeOrigin: true,
         secure: true,
@@ -40,6 +41,13 @@ export default defineConfig({
         headers: {
           'Authorization': 'Basic ' + Buffer.from('saber:saber_secret').toString('base64')
         }
+      },
+      // 主系统后端（go-server），经服务器 Caddy:80 转发到 8080
+      '/api': {
+        target: 'http://111.231.16.110',
+        changeOrigin: true,
+        secure: false,
+        ws: false
       },
       '/smart-api': {
         target: 'http://218.90.146.230:20001',

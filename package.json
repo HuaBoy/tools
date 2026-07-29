@@ -10,6 +10,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
     "@vueuse/core": "^14.3.0",
+    "axios": "^1.18.1",
     "clipboard": "^2.0.11",
     "crypto-js": "^4.2.0",
     "docx": "^9.7.1",

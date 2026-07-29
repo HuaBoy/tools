@@ -5,7 +5,6 @@ import GlassCard from '@/components/GlassCard.vue';
 import { useAuthStore } from '@/stores/auth';
 import { useLogsStore } from '@/stores/logs';
 import adminApi from '@/api/admin';
-import { localUserStore } from '@/utils/localUserStore';
 
 const authStore = useAuthStore();
 const logsStore = useLogsStore();
@@ -26,27 +25,17 @@ const editUserId = ref(null);
 const userForm = reactive({
   username: '',
   email: '',
+  nickname: '',
   password: '',
   confirmPassword: '',
-  role: 'user',
-  permissions: []
+  role: null,        // 角色 ID
+  status: 1
 });
 
 const roles = ref([]);
-const allPermissions = ref([]);
 
 const roleOptions = computed(() => {
   return roles.value.map(r => ({ label: r.name, value: r.id }));
-});
-
-const permissionOptions = computed(() => {
-  return allPermissions.value.map(p => ({ label: p.name, value: p.id }));
-});
-
-watch(() => userForm.role, (newRole) => {
-  if (!editUserId.value && newRole) {
-    userForm.permissions = localUserStore.getRolePermissions(newRole);
-  }
 });
 
 const loadUsers = async () => {
@@ -70,39 +59,37 @@ const loadRoles = async () => {
   }
 };
 
-const loadPermissions = async () => {
-  try {
-    allPermissions.value = await adminApi.getPermissions();
-  } catch (error) {
-    ElMessage.error('加载权限列表失败: ' + error.message);
-  }
-};
-
 const handleAddUser = () => {
   editUserId.value = null;
   userForm.username = '';
   userForm.email = '';
+  userForm.nickname = '';
   userForm.password = '';
   userForm.confirmPassword = '';
-  userForm.role = 'user';
-  userForm.permissions = localUserStore.getRolePermissions('user');
+  userForm.role = roles.value.length ? roles.value[0].id : null;
+  userForm.status = 1;
   showUserForm.value = true;
 };
 
 const handleEditUser = (user) => {
   editUserId.value = user.id;
   userForm.username = user.username;
-  userForm.email = user.email;
+  userForm.email = user.email || '';
+  userForm.nickname = user.nickname || '';
   userForm.password = '';
   userForm.confirmPassword = '';
-  userForm.role = user.role || 'user';
-  userForm.permissions = user.permissions || [];
+  userForm.role = user.role_id || null;
+  userForm.status = user.status === undefined ? 1 : user.status;
   showUserForm.value = true;
 };
 
 const handleSaveUser = async () => {
   if (!userForm.username.trim()) {
     ElMessage.warning('请输入用户名');
+    return;
+  }
+  if (!userForm.role) {
+    ElMessage.warning('请选择角色');
     return;
   }
 
@@ -120,10 +107,10 @@ const handleSaveUser = async () => {
   try {
     if (editUserId.value) {
       const updates = {
-        username: userForm.username,
+        nickname: userForm.nickname || userForm.username,
         email: userForm.email,
-        role: userForm.role,
-        permissions: userForm.permissions
+        role_id: userForm.role,
+        status: userForm.status
       };
       if (userForm.password.trim()) {
         updates.password = userForm.password;
@@ -134,10 +121,11 @@ const handleSaveUser = async () => {
     } else {
       await adminApi.createUser({
         username: userForm.username,
-        email: userForm.email,
         password: userForm.password,
-        role: userForm.role,
-        permissions: userForm.permissions
+        nickname: userForm.nickname || userForm.username,
+        email: userForm.email,
+        role_id: userForm.role,
+        status: userForm.status
       });
       ElMessage.success('用户创建成功');
       logsStore.addLog('创建', '用户管理', `创建用户: ${userForm.username}`);
@@ -210,6 +198,14 @@ const getRoleName = (roleId) => {
   return role ? role.name : roleId;
 };
 
+const getRoleClass = (roleId) => {
+  if (roleId === 1) return 'admin';
+  if (roleId === 2) return 'manager';
+  if (roleId === 3) return 'editor';
+  if (roleId === 4) return 'viewer';
+  return 'user';
+};
+
 const formatDate = (dateStr) => {
   if (!dateStr) return '-';
   return new Date(dateStr).toLocaleString('zh-CN');
@@ -236,14 +232,14 @@ onMounted(async () => {
   }
   loadUsers();
   loadRoles();
-  loadPermissions();
 });
 </script>
 
 <template>
   <div class="user-management">
     <GlassCard title="用户管理">
-      <div class="toolbar">
+      <div class="content-panel">
+        <div class="toolbar">
         <div class="search-area">
           <input
             v-model="userSearchForm.search"
@@ -284,7 +280,7 @@ onMounted(async () => {
               <th>用户名</th>
               <th>邮箱</th>
               <th>角色</th>
-              <th>权限数</th>
+              <th>状态</th>
               <th>创建时间</th>
               <th>操作</th>
             </tr>
@@ -294,11 +290,15 @@ onMounted(async () => {
               <td>{{ user.username }}</td>
               <td>{{ user.email || '-' }}</td>
               <td>
-                <span class="role-tag" :class="'role-' + (user.role || 'user')">
-                  {{ getRoleName(user.role) }}
+                <span class="role-tag" :class="'role-' + (getRoleClass(user.role_id))">
+                  {{ user.role_name || getRoleName(user.role_id) }}
                 </span>
               </td>
-              <td>{{ (user.permissions || []).length }}</td>
+              <td>
+                <span class="status-tag" :class="user.status === 1 ? 'enabled' : 'disabled'">
+                  {{ user.status === 1 ? '启用' : '禁用' }}
+                </span>
+              </td>
               <td>{{ formatDate(user.created_at) }}</td>
               <td class="actions">
                 <button class="action-link" @click="handleEditUser(user)" v-if="authStore.hasPermission('user:edit')">编辑</button>
@@ -326,6 +326,7 @@ onMounted(async () => {
           @click="handlePageChange(userCurrentPage + 1)"
         >下一页</button>
       </div>
+      </div>
     </GlassCard>
 
     <Teleport to="body">
@@ -345,6 +346,10 @@ onMounted(async () => {
               <input v-model="userForm.email" type="email" class="form-input" placeholder="请输入邮箱" />
             </div>
             <div class="form-group">
+              <label>昵称</label>
+              <input v-model="userForm.nickname" type="text" class="form-input" placeholder="请输入昵称" />
+            </div>
+            <div class="form-group">
               <label>{{ editUserId ? '新密码（不填则保持不变）' : '密码' }}</label>
               <input v-model="userForm.password" type="password" class="form-input" placeholder="请输入密码" />
             </div>
@@ -361,17 +366,11 @@ onMounted(async () => {
               </select>
             </div>
             <div class="form-group">
-              <label>权限</label>
-              <div class="permissions-grid">
-                <label v-for="p in permissionOptions" :key="p.value" class="permission-item">
-                  <input
-                    type="checkbox"
-                    :value="p.value"
-                    v-model="userForm.permissions"
-                  />
-                  <span>{{ p.label }}</span>
-                </label>
-              </div>
+              <label>状态</label>
+              <select v-model="userForm.status" class="form-input">
+                <option :value="1">启用</option>
+                <option :value="0">禁用</option>
+              </select>
             </div>
           </div>
           <div class="modal-footer">
@@ -386,7 +385,15 @@ onMounted(async () => {
 
 <style scoped>
 .user-management {
-  max-width: 1400px;
+  width: 100%;
+}
+
+.content-panel {
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  overflow: hidden;
+  padding: 16px;
 }
 
 .toolbar {

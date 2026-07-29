@@ -71,7 +71,7 @@ func Load() error {
 			URL:         getEnv("SUPABASE_URL", ""),
 			AnonKey:     getEnv("SUPABASE_ANON_KEY", ""),
 			ServiceKey:  getEnv("SUPABASE_SERVICE_KEY", ""),
-			DatabaseURL: getEnv("DATABASE_URL", ""),
+			DatabaseURL: getEnv("DB_DSN", getEnv("DATABASE_URL", "")),
 		},
 		JWT: JWTConfig{
 			Secret:      getEnv("JWT_SECRET", "default-secret-please-change"),

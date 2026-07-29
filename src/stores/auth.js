@@ -5,6 +5,7 @@ import { localUserStore } from '@/utils/localUserStore';
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     isLoggedIn: false,
+    token: localStorage.getItem('auth_token') || null,
     user: null,
     userProfile: null,
     role: null,
@@ -44,20 +45,43 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async login(username, password) {
-      const user = localUserStore.validateLogin(username, password);
-      
-      if (user) {
+      const response = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      let result = {};
+      try {
+        result = await response.json();
+      } catch (e) {
+        throw new Error('服务器返回异常');
+      }
+
+      if (response.ok && result.code === 200 && result.data && result.data.token) {
+        // 后端返回扁平结构：{ token, user_id, username, email, role, permissions }
+        const { token, user_id, username: uname, email: uemail, role: urole, permissions: uperms } = result.data;
+        const role = urole || 'user';
         this.isLoggedIn = true;
-        this.user = { id: user.id, email: user.email, username: user.username };
-        this.role = user.role;
-        this.permissions = user.permissions || [];
+        this.token = token;
+        this.user = {
+          id: user_id,
+          username: uname || username,
+          email: uemail || ''
+        };
+        this.userProfile = this.user;
+        this.role = role;
+        this.permissions = role === 'admin' ? ['*'] : (uperms || []);
         this.lastActivityTime = Date.now();
-        localStorage.setItem('auth_user', user.username);
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('auth_user', this.user.username);
+        localStorage.setItem('auth_user_info', JSON.stringify({ ...this.user, role, permissions: this.permissions }));
         localStorage.setItem('last_activity', String(Date.now()));
         return true;
       }
 
-      return false;
+      // 登录失败：抛出后端返回的错误信息
+      throw new Error(result.message || '用户名或密码错误');
     },
 
     async register(email, password, username) {
@@ -132,6 +156,9 @@ export const useAuthStore = defineStore('auth', {
       this.permissions = [];
       this.lastActivityTime = 0;
       localStorage.removeItem('last_activity');
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_user_info');
     },
 
     refreshActivity() {
@@ -142,29 +169,33 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async loadAuthState() {
-      const savedUser = localStorage.getItem('auth_user');
+      const token = localStorage.getItem('auth_token');
+      const savedInfo = localStorage.getItem('auth_user_info');
       const savedTime = localStorage.getItem('last_activity');
-      
-      if (savedUser && savedTime) {
+
+      if (token && savedInfo && savedTime) {
         const lastTime = parseInt(savedTime, 10);
         const twoDaysInMs = 2 * 24 * 60 * 60 * 1000;
-        
+
         if (Date.now() - lastTime <= twoDaysInMs) {
-          const user = localUserStore.getUserByUsername(savedUser);
-          if (user) {
+          try {
+            const info = JSON.parse(savedInfo);
             this.isLoggedIn = true;
-            this.user = { id: user.id, email: user.email, username: user.username };
-            this.role = user.role;
-            this.permissions = user.permissions || [];
+            this.user = { id: info.id, username: info.username, email: info.email || '' };
+            this.role = info.role;
+            this.permissions = info.role === 'admin' ? ['*'] : [];
             this.lastActivityTime = lastTime;
             return true;
+          } catch (e) {
+            this.reset();
+            return false;
           }
         } else {
-          this.logout();
+          this.reset();
           return false;
         }
       }
-      
+
       return false;
     },
 

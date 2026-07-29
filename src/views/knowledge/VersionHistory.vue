@@ -2,16 +2,15 @@
 import { ref, computed, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import GlassCard from '@/components/GlassCard.vue';
-import DeviceVersionTab from './DeviceVersionTab.vue';
 import { useLogsStore } from '@/stores/logs';
 import { getDeviceTypeByAppVersion, getAllDeviceTypes } from '@/utils/deviceType.js';
+import { versionApi } from '@/api/version';
 
 const logsStore = useLogsStore();
 
 // ==================== 顶层 TAB 系统 ====================
 const mainTabs = ref([
-  { key: 'blaster', label: '起爆器版本', removable: false },
-  { key: 'device', label: '设备版本', removable: false }
+  { key: 'blaster', label: '起爆器版本', removable: false }
 ]);
 const activeMainTab = ref('blaster');
 const showAddTabDialog = ref(false);
@@ -26,7 +25,6 @@ const loadCustomTabs = () => {
       if (Array.isArray(parsed)) {
         mainTabs.value = [
           { key: 'blaster', label: '起爆器版本', removable: false },
-          { key: 'device', label: '设备版本', removable: false },
           ...parsed
         ];
       }
@@ -161,7 +159,7 @@ const onAppVersionChange = (val) => {
 };
 
 // 保存新增的版本
-const saveNewVersion = () => {
+const saveNewVersion = async () => {
   // 验证必填
   if (!versionForm.value.id.trim()) {
     ElMessage.error('请输入版本号');
@@ -215,19 +213,31 @@ const saveNewVersion = () => {
     source: 'manual'
   };
 
-  // 添加到列表（按区域）
-  if (versionForm.value.region === 'overseas') {
-    uploadedVersions.value.overseas.unshift(newVersion);
-  } else {
-    uploadedVersions.value.domestic.unshift(newVersion);
+  // 调用后端新增
+  try {
+    await versionApi.createVersion({
+      region: versionForm.value.region,
+      version_no: newVersion.id,
+      title: newVersion.title,
+      app_version: newVersion.appVersion,
+      controller_version: newVersion.controllerVersion,
+      used_device: newVersion.usedDevice,
+      device_type_color: newVersion.deviceTypeColor,
+      release_date: newVersion.date,
+      features: newVersion.features,
+      source: 'manual'
+    });
+  } catch (e) {
+    ElMessage.error('新增失败：' + (e.message || '未知错误'));
+    return;
   }
 
-  // 保存到 localStorage
-  saveUploadedVersions();
+  // 重新加载该区域数据
+  await loadVersions(versionForm.value.region);
 
   // 切换到对应区域
   selectedRegion.value = newVersion.region || 'domestic';
-  selectedVersion.value = newVersion;
+  selectedVersion.value = (uploadedVersions.value[selectedRegion.value] || []).find(v => v.id === newVersion.id) || null;
 
   showAddVersionDialog.value = false;
   ElMessage.success(`版本 ${newVersion.id} 已添加`);
@@ -235,35 +245,24 @@ const saveNewVersion = () => {
   logsStore.addLog('新增', '版本履历', `新增版本: ${newVersion.id}`);
 };
 
-// 从 localStorage 加载已保存的版本
-const loadUploadedVersions = () => {
+// 从后端加载版本履历（按区域）
+const loadingVersions = ref(false);
+const loadVersions = async (region) => {
+  const target = region || selectedRegion.value || 'domestic';
+  loadingVersions.value = true;
   try {
-    const saved = localStorage.getItem('version_history_uploaded');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed && typeof parsed === 'object') {
-        uploadedVersions.value = {
-          domestic: Array.isArray(parsed.domestic) ? parsed.domestic : [],
-          overseas: Array.isArray(parsed.overseas) ? parsed.overseas : []
-        };
-      }
-    }
+    const list = await versionApi.getVersions({ region: target });
+    uploadedVersions.value[target] = list;
   } catch (e) {
-    console.warn('加载本地版本失败:', e);
-  }
-};
-
-// 保存到 localStorage
-const saveUploadedVersions = () => {
-  try {
-    localStorage.setItem('version_history_uploaded', JSON.stringify(uploadedVersions.value));
-  } catch (e) {
-    console.warn('保存版本失败:', e);
+    console.warn('加载版本履历失败:', e);
+    ElMessage.error('加载版本履历失败：' + (e.message || '未知错误'));
+  } finally {
+    loadingVersions.value = false;
   }
 };
 
 // 页面加载时读取
-loadUploadedVersions();
+loadVersions();
 
 const domesticVersions = [
   {
@@ -434,17 +433,9 @@ const overseasVersions = [
 ];
 
 const currentVersions = computed(() => {
-  const baseList = selectedRegion.value === 'domestic' ? domesticVersions : overseasVersions;
-  // 合并已上传的版本（去重，以 id 为准）
-  const uploaded = uploadedVersions.value[selectedRegion.value] || [];
-  const map = new Map();
-  [...baseList, ...uploaded].forEach(v => {
-    if (!map.has(v.id)) {
-      map.set(v.id, v);
-    }
-  });
+  const list = uploadedVersions.value[selectedRegion.value] || [];
   // 按日期降序
-  return Array.from(map.values()).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  return [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 });
 
 // ==================== 区域选择 + 起爆器/设备筛选 ====================
@@ -453,6 +444,7 @@ const selectRegion = (region) => {
   selectedVersion.value = null;
   filterBlaster.value = '';
   filterDevice.value = '';
+  loadVersions(region);
 };
 
 const resetFilters = () => {
@@ -574,25 +566,26 @@ const compareFeatures = computed(() => {
 // ============ 手动新增版本（已实现） ============
 
 /**
- * 删除已上传的版本
+ * 删除版本（调用后端）
  */
-const handleDeleteUploaded = (version) => {
-  const list = uploadedVersions.value[selectedRegion.value];
-  const index = list.findIndex(v => v.id === version.id);
-  if (index >= 0) {
-    list.splice(index, 1);
+const handleDeleteUploaded = async (version) => {
+  try {
+    await versionApi.deleteVersion(version.dbId);
     if (selectedVersion.value?.id === version.id) {
       selectedVersion.value = null;
     }
+    await loadVersions(selectedRegion.value);
     ElMessage.success('已删除');
+  } catch (e) {
+    ElMessage.error('删除失败：' + (e.message || '未知错误'));
   }
 };
 </script>
 
 <template>
   <div class="version-manual">
-    <GlassCard title="版本履历">
-      <!-- 顶部筛选行：区域 + 维度（起爆器版本 / 设备版本） -->
+  <GlassCard title="起爆器版本履历">
+    <!-- 顶部筛选行：区域 -->
       <div class="top-filter-row">
         <!-- 区域筛选（无“区域”标签，默认国内） -->
         <div class="region-segment">
@@ -614,23 +607,6 @@ const handleDeleteUploaded = (version) => {
           </button>
         </div>
 
-        <!-- 维度筛选：起爆器版本 / 设备版本（样式参考区域分段控件） -->
-        <div class="region-segment">
-          <button
-            class="region-seg-btn"
-            :class="{ active: activeMainTab === 'blaster' }"
-            @click="activeMainTab = 'blaster'"
-          >
-            <span>起爆器版本</span>
-          </button>
-          <button
-            class="region-seg-btn"
-            :class="{ active: activeMainTab === 'device' }"
-            @click="activeMainTab = 'device'"
-          >
-            <span>设备版本</span>
-          </button>
-        </div>
       </div>
 
       <!-- ==================== 起爆器版本 ==================== -->
@@ -694,12 +670,11 @@ const handleDeleteUploaded = (version) => {
             >
               <div class="vc-top">
                 <span class="version-id">{{ version.id }}</span>
-                <span v-if="version.source === 'uploaded'" class="uploaded-badge">已上传</span>
+                <span v-if="version.source === 'seed'" class="uploaded-badge">预置</span>
                 <button
-                  v-if="version.source === 'uploaded'"
                   class="delete-version-btn"
                   @click.stop="handleDeleteUploaded(version)"
-                  title="删除此上传版本"
+                  title="删除此版本"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6" />
@@ -1017,11 +992,6 @@ const handleDeleteUploaded = (version) => {
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- ==================== 设备版本 ==================== -->
-      <div v-if="activeMainTab === 'device'" class="version-container">
-        <DeviceVersionTab />
       </div>
 
       <!-- ==================== 自定义 Tab ==================== -->

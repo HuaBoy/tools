@@ -1,0 +1,4 @@
+[90m2026-07-23 15:34:07[0m [32mINF[0m [1m启动 tester-platform backend[0m [36mmode=[0mrelease [36mport=[0m8080 [36msupabase_configured=[0mtrue
+[90m2026-07-23 15:34:07[0m [32mINF[0m [1m服务监听中...[0m [36maddr=[0m0.0.0.0:8080
+[90m2026-07-23 15:34:09[0m [32mINF[0m [1mHTTP Request[0m [36merror=[0m[31m[1m[0m[0m [36mip=[0m::1 [36mlatency=[0m0 [36mmethod=[0mGET [36mpath=[0m/api/v1/overseas-shipping [36mstatus=[0m401
+[90m2026-07-23 15:34:09[0m [32mINF[0m [1mHTTP Request[0m [36merror=[0m[31m[1m[0m[0m [36mip=[0m::1 [36mlatency=[0m0 [36mmethod=[0mGET [36mpath=[0m/api/v1/overseas-shipping/1 [36mstatus=[0m401

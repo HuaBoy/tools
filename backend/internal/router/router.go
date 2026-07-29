@@ -1,6 +1,8 @@
 package router
 
 import (
+	"database/sql"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/tester-platform/backend/internal/config"
@@ -11,7 +13,7 @@ import (
 )
 
 // Setup 设置路由
-func Setup(client *supabase.Client, jwtManager *jwt.Manager) *gin.Engine {
+func Setup(client *supabase.Client, jwtManager *jwt.Manager, db *sql.DB) *gin.Engine {
 	// 设置 Gin 模式
 	gin.SetMode(config.App.Server.Mode)
 
@@ -31,10 +33,13 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager) *gin.Engine {
 
 	// 初始化 handlers
 	healthHandler := handlers.NewHealthHandler()
-	authHandler := handlers.NewAuthHandler(client, jwtManager)
+	authHandler := handlers.NewAuthHandler(client, jwtManager, db)
 	userHandler := handlers.NewUserHandler(client)
 	roleHandler := handlers.NewRoleHandler(client)
 	featureHandler := handlers.NewFeatureHandler(client)
+	overseasShippingHandler := handlers.NewOverseasShippingHandler(db)
+	manualHandler := handlers.NewOperationManualHandler(db)
+	videoHandler := handlers.NewOperationVideoHandler(db)
 
 	// 健康检查（无需认证）
 	r.GET("/health", healthHandler.Health)
@@ -87,9 +92,39 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager) *gin.Engine {
 				features.POST("", middleware.RequirePermission("feature:toggle"), featureHandler.Create)
 				features.PATCH("/:id", middleware.RequirePermission("feature:toggle"), featureHandler.Update)
 				features.DELETE("/:id", middleware.RequirePermission("feature:toggle"), featureHandler.Delete)
-				features.POST("/:id/toggle", middleware.RequirePermission("feature:toggle"), featureHandler.Toggle)
-			}
+			features.POST("/:id/toggle", middleware.RequirePermission("feature:toggle"), featureHandler.Toggle)
 		}
+
+		// 海外发货管理（登录即可访问）
+		overseasShipping := auth.Group("/overseas-shipping")
+		{
+			overseasShipping.GET("", overseasShippingHandler.List)
+			overseasShipping.GET("/:id", overseasShippingHandler.Get)
+			overseasShipping.POST("", overseasShippingHandler.Create)
+			overseasShipping.PATCH("/:id", overseasShippingHandler.Update)
+			overseasShipping.DELETE("/:id", overseasShippingHandler.Delete)
+		}
+
+		// 操作手册
+		manual := auth.Group("/operation-manuals")
+		{
+			manual.GET("", manualHandler.List)
+			manual.GET("/:id", manualHandler.Get)
+			manual.POST("", manualHandler.Create)
+			manual.PATCH("/:id", manualHandler.Update)
+			manual.DELETE("/:id", manualHandler.Delete)
+		}
+
+		// 操作视频
+		video := auth.Group("/operation-videos")
+		{
+			video.GET("", videoHandler.List)
+			video.GET("/:id", videoHandler.Get)
+			video.POST("", videoHandler.Create)
+			video.PATCH("/:id", videoHandler.Update)
+			video.DELETE("/:id", videoHandler.Delete)
+		}
+	}
 	}
 
 	return r

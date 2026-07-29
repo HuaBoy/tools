@@ -1,0 +1,16 @@
+:80 {
+    root * /opt/ai-blasting/dist
+    encode gzip
+
+    # 前端 API 反代到本机 go-server（admin/800228 登录等）
+    handle /api/* {
+        reverse_proxy localhost:8080
+    }
+
+    # SPA 路由回退：非文件请求交给 index.html
+    handle {
+        @spa not file
+        rewrite @spa /index.html
+        file_server
+    }
+}

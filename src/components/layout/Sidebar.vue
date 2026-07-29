@@ -31,6 +31,17 @@ const menuGroups = [
     ]
   },
   {
+    name: '销售岗',
+    icon: 'trending-up',
+    children: [
+      { name: '行业洞察', path: '/sales', icon: 'trending-up' },
+      { name: '全国总量', path: '/sales', query: 'national', icon: 'bar-chart-2' },
+      { name: '区域分布', path: '/sales', query: 'regional', icon: 'map-pin' },
+      { name: 'CR20集中度', path: '/sales', query: 'cr20', icon: 'pie-chart' },
+      { name: '行业动态', path: '/sales', query: 'news', icon: 'newspaper' }
+    ]
+  },
+  {
     name: '自动化任务',
     icon: 'zap',
     children: [
@@ -54,7 +65,8 @@ const menuGroups = [
     children: [
       { name: '智能知识库(RAG)', path: '/knowledge/rag', icon: 'brain', highlight: true },
       { name: '起爆器版本手册', path: '/knowledge/manual', icon: 'book-open' },
-      { name: '版本履历', path: '/knowledge/history', icon: 'history' },
+      { name: '起爆器版本履历', path: '/knowledge/history', icon: 'history' },
+      { name: '产线履历', path: '/knowledge/production-history', icon: 'factory' },
       { name: '录音管理', path: '/knowledge/audio', icon: 'mic' },
       { name: '智能制造系统', path: '/trace/factory-data', icon: 'database' }
     ]
@@ -84,7 +96,8 @@ const menuGroups = [
       { name: '后台管理', path: '/admin', icon: 'server' },
       { name: '用户管理', path: '/admin/users', icon: 'users' },
       { name: '权限管理', path: '/admin/permissions', icon: 'key' },
-      { name: '功能管理', path: '/admin/features', icon: 'toggle' }
+      { name: '功能管理', path: '/admin/features', icon: 'toggle' },
+      { name: '服务器数据库', path: '/admin/database', icon: 'database' }
     ]
   },
   {
@@ -92,6 +105,16 @@ const menuGroups = [
     icon: 'cpu',
     children: [
       { name: 'AI-PCB 助手', path: '/ai/pcb', icon: 'wrench', highlight: true }
+    ]
+  },
+  {
+    name: '海外业务',
+    icon: 'package',
+    children: [
+      { name: '海外发货管理', path: '/overseas/shipping', icon: 'send' },
+      { name: '操作手册', path: '/overseas/manual', icon: 'book-open' },
+      { name: '操作视频', path: '/overseas/video', icon: 'video' },
+      { name: '爆破设计软件', path: '/overseas/blasting-design', icon: 'zap' }
     ]
   }
 ]
@@ -103,10 +126,21 @@ function toggleGroup(index) {
   if (idx > -1) expandedGroups.value.splice(idx, 1)
   else expandedGroups.value.push(index)
 }
-function isActive(path) { return route.path === path }
-function navigateTo(path, coming) {
-  if (coming) return
-  router.push(path)
+function isActive(target) {
+  const path = typeof target === 'string' ? target : target.path
+  if (route.path !== path) return false
+  if (typeof target === 'object' && target.query) return route.query.tab === target.query
+  return !route.query.tab
+}
+function navigateTo(target, coming) {
+  if (typeof target === 'string') {
+    if (coming) return
+    router.push(target)
+    if (isMobile.value) emit('close')
+    return
+  }
+  if (target.coming) return
+  router.push(target.query ? { path: target.path, query: { tab: target.query } } : { path: target.path })
   if (isMobile.value) emit('close')
 }
 
@@ -149,6 +183,7 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile) })
               <svg v-else-if="group.icon === 'book'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
               <svg v-else-if="group.icon === 'package'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
               <svg v-else-if="group.icon === 'settings'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              <svg v-else-if="group.icon === 'trending-up'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
               <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
             </div>
             <span class="group-name">{{ group.name }}</span>
@@ -158,8 +193,8 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile) })
             <div
               v-for="item in group.children" :key="item.path"
               class="menu-item"
-              :class="{ active: isActive(item.path), 'coming-soon': item.coming }"
-              @click="navigateTo(item.path, item.coming)"
+              :class="{ active: isActive(item), 'coming-soon': item.coming }"
+              @click="navigateTo(item)"
               @mouseenter="preloadRoute(item.path)"
             >
               <div class="item-icon">
@@ -172,6 +207,18 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile) })
                 <svg v-else-if="item.icon === 'box'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/></svg>
                 <svg v-else-if="item.icon === 'send'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 <svg v-else-if="item.icon === 'upload-cloud'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/><polyline points="16 16 12 12 8 16"/></svg>
+                <svg v-else-if="item.icon === 'database'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+                <svg v-else-if="item.icon === 'factory'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M7 18h1"/><path d="M12 18h1"/><path d="M17 18h1"/></svg>
+                <svg v-else-if="item.icon === 'trending-up'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                <svg v-else-if="item.icon === 'bar-chart-2'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <svg v-else-if="item.icon === 'pie-chart'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                <svg v-else-if="item.icon === 'map-pin'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <svg v-else-if="item.icon === 'newspaper'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
+                <svg v-else-if="item.icon === 'trending-up'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                <svg v-else-if="item.icon === 'bar-chart-2'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                <svg v-else-if="item.icon === 'pie-chart'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+                <svg v-else-if="item.icon === 'map-pin'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                <svg v-else-if="item.icon === 'newspaper'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
                 <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M3 9h18"/></svg>
               </div>
               <span class="item-name">{{ item.name }}</span>

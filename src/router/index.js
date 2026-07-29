@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const routes = [
   {
@@ -64,15 +65,34 @@ const routes = [
     component: () => import('@/views/knowledge/VersionManual.vue'),
     meta: { requiresAuth: true }
   },
+    {
+      path: '/knowledge/history',
+      name: 'VersionHistory',
+      component: () => import('@/views/knowledge/VersionHistory.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/knowledge/production-history',
+      name: 'ProductionHistory',
+      component: () => import('@/views/knowledge/ProductionHistory.vue'),
+      meta: { requiresAuth: true }
+    },
+    // ===== 销售岗（民爆行业洞察） =====
+    {
+      path: '/sales',
+      name: 'SalesInsight',
+      component: () => import('@/views/sales/SalesWorkbench.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/sales/:section',
+      name: 'SalesInsightSection',
+      component: () => import('@/views/sales/SalesWorkbench.vue'),
+      meta: { requiresAuth: true }
+    },
   {
-    path: '/knowledge/history',
-    name: 'VersionHistory',
-    component: () => import('@/views/knowledge/VersionHistory.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/knowledge/audio',
-    name: 'AudioRecorder',
+      path: '/knowledge/audio',
+      name: 'AudioRecorder',
     component: () => import('@/views/knowledge/AudioRecorder.vue'),
     meta: { requiresAuth: true }
   },
@@ -149,6 +169,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/admin/database',
+    name: 'DatabaseManagement',
+    component: () => import('@/views/admin/DatabaseManagement.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/stats/big-screen',
     name: 'BigScreen',
     component: () => import('@/views/stats/BigScreen.vue'),
@@ -191,6 +217,31 @@ const routes = [
     name: 'AiPcb',
     component: () => import('@/views/ai/AiPcb.vue'),
     meta: { requiresAuth: true }
+  },
+  // ===== 海外发货管理 =====
+  {
+    path: '/overseas/shipping',
+    name: 'OverseasShipping',
+    component: () => import('@/views/overseas/OverseasShipping.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/overseas/manual',
+    name: 'OperationManual',
+    component: () => import('@/views/overseas/OperationManual.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/overseas/video',
+    name: 'OperationVideo',
+    component: () => import('@/views/overseas/OperationVideo.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/overseas/blasting-design',
+    name: 'BlastingDesign',
+    component: () => import('@/views/overseas/BlastingDesign.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
@@ -213,48 +264,49 @@ export function preloadRoute(path) {
   }
 }
 
+// 是否已登录且凭证在有效期内（2 天）
+function isLoggedIn() {
+  const token = localStorage.getItem('auth_token')
+  const user = localStorage.getItem('auth_user')
+  const time = localStorage.getItem('last_activity')
+  if (token && user && time) {
+    const lastTime = parseInt(time, 10)
+    const twoDaysInMs = 2 * 24 * 60 * 60 * 1000
+    return Date.now() - lastTime <= twoDaysInMs
+  }
+  return false
+}
+
 router.beforeEach((to, from, next) => {
   // 登录页不需要认证
   if (to.path === '/login') {
-    // 如果已经登录且凭证有效，直接跳转到首页
-    const savedUser = localStorage.getItem('auth_user')
-    const savedTime = localStorage.getItem('last_activity')
-
-    if (savedUser && savedTime) {
-      const lastTime = parseInt(savedTime, 10)
-      const twoDaysInMs = 2 * 24 * 60 * 60 * 1000
-
-      if (Date.now() - lastTime <= twoDaysInMs) {
-        next('/home')
-        return
-      }
+    // 已登录则直接进入主页，避免重复登录
+    if (isLoggedIn()) {
+      next('/home')
+    } else {
+      next()
     }
+    return
+  }
 
+  // 需要认证的页面
+  if (to.meta.requiresAuth) {
+    if (!isLoggedIn()) {
+      // 凭证缺失或已过期：清理残留状态，强制跳转到登录页
+      try {
+        useAuthStore().reset()
+      } catch (e) {
+        // pinia 未激活时忽略，localStorage 已可拦截
+      }
+      next('/login')
+      return
+    }
+    // 刷新最近活跃时间
+    localStorage.setItem('last_activity', String(Date.now()))
     next()
     return
   }
-  
-  // 需要认证的页面
-  if (to.meta.requiresAuth) {
-    const savedUser = localStorage.getItem('auth_user')
-    const savedTime = localStorage.getItem('last_activity')
-    
-    if (savedUser && savedTime) {
-      const lastTime = parseInt(savedTime, 10)
-      const twoDaysInMs = 2 * 24 * 60 * 60 * 1000
-      
-      if (Date.now() - lastTime <= twoDaysInMs) {
-        localStorage.setItem('last_activity', String(Date.now()))
-        next()
-        return
-      }
-    }
-    
-    // 未登录或凭证过期，跳转到登录页
-    next('/login')
-    return
-  }
-  
+
   next()
 })
 

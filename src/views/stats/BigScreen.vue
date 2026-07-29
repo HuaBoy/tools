@@ -8,8 +8,8 @@ const iframeError = ref(false);
 const iframeErrorMsg = ref('');
 let loadTimer = null;
 
-// 通过 Vite 代理加载同源地址，这样才能注入翻译脚本
-const bigScreenUrl = '/big-screen/bigScreen2/';
+// 直接引用盛景可视化平台（外部大屏）地址
+const bigScreenUrl = 'https://mp.holyview.cn:9443/bigScreen2/';
 
 let observer = null;
 
@@ -129,30 +129,34 @@ const translateDOM = (root) => {
   nodes.forEach(translateTextNode);
 };
 
-// 注入翻译到 iframe（同源，可访问 contentDocument）
+// 注入翻译到 iframe（同源可访问 contentDocument；跨域外链时跳过）
 const injectTranslation = () => {
-  const iframe = document.querySelector('.big-screen-iframe');
-  if (!iframe || !iframe.contentDocument || !iframe.contentDocument.body) return;
+  try {
+    const iframe = document.querySelector('.big-screen-iframe');
+    if (!iframe || !iframe.contentDocument || !iframe.contentDocument.body) return;
 
-  const doc = iframe.contentDocument;
+    const doc = iframe.contentDocument;
 
-  // 先翻译已有内容
-  translateDOM(doc.body);
+    // 先翻译已有内容
+    translateDOM(doc.body);
 
-  // 用 MutationObserver 监听后续动态变化
-  if (observer) observer.disconnect();
-  observer = new MutationObserver((mutations) => {
-    mutations.forEach(mutation => {
-      mutation.addedNodes.forEach(addedNode => {
-        if (addedNode.nodeType === Node.TEXT_NODE) {
-          translateTextNode(addedNode);
-        } else if (addedNode.nodeType === Node.ELEMENT_NODE) {
-          translateDOM(addedNode);
-        }
+    // 用 MutationObserver 监听后续动态变化
+    if (observer) observer.disconnect();
+    observer = new MutationObserver((mutations) => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(addedNode => {
+          if (addedNode.nodeType === Node.TEXT_NODE) {
+            translateTextNode(addedNode);
+          } else if (addedNode.nodeType === Node.ELEMENT_NODE) {
+            translateDOM(addedNode);
+          }
+        });
       });
     });
-  });
-  observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
+    observer.observe(doc.body, { childList: true, subtree: true, characterData: true });
+  } catch (e) {
+    // 跨域 iframe 无法访问 contentDocument，翻译注入跳过（不影响大屏显示）
+  }
 };
 
 // 切换语言

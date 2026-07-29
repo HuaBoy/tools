@@ -8,8 +8,8 @@ import { isSupabaseReady } from '@/utils/supabase';
 const authStore = useAuthStore();
 const router = useRouter();
 
-const username = ref('');
-const password = ref('');
+const username = ref('admin');
+const password = ref('800228');
 const isLoading = ref(false);
 
 // 注册相关
@@ -39,37 +39,9 @@ const handleLogin = async () => {
 
   isLoading.value = true;
 
-  await new Promise(resolve => setTimeout(resolve, 300));
-
-  // 本地模式快捷登录：密码为 123456 时直接通过本地账号登录
-  if (password.value.trim() === '123456') {
-    try {
-      const success = await authStore.login(username.value.trim(), password.value.trim());
-      isLoading.value = false;
-
-      if (success) {
-        ElMessage.success('登录成功');
-        await router.push('/home');
-      } else {
-        ElMessage.error('登录失败，请重试');
-      }
-    } catch (error) {
-      isLoading.value = false;
-      ElMessage.error('登录失败：' + (error?.message || '未知错误'));
-    }
-    return;
-  }
-
-  // 非默认密码：未配置 Supabase 时拒绝
-  if (!isSupabaseReady) {
-    isLoading.value = false;
-    ElMessage.error('当前为本地模式，默认密码为：123456');
-    return;
-  }
-
-  // 已配置 Supabase：尝试远程登录
+  // 请求后端登录接口 /api/login
   try {
-    console.log('[Login] 开始远程登录流程，用户名:', username.value.trim());
+    console.log('[Login] 请求登录接口，用户名:', username.value.trim());
     const success = await authStore.login(username.value.trim(), password.value.trim());
 
     isLoading.value = false;
@@ -78,15 +50,14 @@ const handleLogin = async () => {
       ElMessage.success('登录成功');
       await router.push('/home');
     } else {
-      console.warn('[Login] 远程登录返回失败');
       ElMessage.error('账号或密码错误');
     }
   } catch (error) {
     isLoading.value = false;
-    console.error('[Login] 远程登录异常:', error);
+    console.error('[Login] 登录异常:', error);
     const msg = (error?.message || '').includes('Failed to fetch')
-      ? '网络请求失败，请检查网络或 Supabase 配置'
-      : '登录失败：' + (error?.message || '未知错误');
+      ? '无法连接服务器，请检查网络或后端服务是否正常'
+      : (error?.message || '登录失败，请重试');
     ElMessage.error(msg);
   }
 };
@@ -166,7 +137,7 @@ const handleRegister = async () => {
             v-model="password"
             type="password" 
             class="form-input"
-            placeholder="请输入密码（默认：123456）"
+            placeholder="请输入密码"
           />
         </div>
         
@@ -177,8 +148,7 @@ const handleRegister = async () => {
       </form>
       
       <div class="login-hint">
-        <p v-if="!isSupabaseReady">当前为本地模式，默认密码：<strong>123456</strong></p>
-        <p v-else>默认密码：123456</p>
+        <p>默认管理员：<strong>admin / 800228</strong></p>
         <p>账号登录后，2天无操作将自动退出</p>
       </div>
       

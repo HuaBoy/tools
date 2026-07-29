@@ -1,0 +1,21 @@
+
+> ai-blasting-toolset@1.0.0 dev
+> vite --host 0.0.0.0
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m2259[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://10.51.22.46:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.0.1:[1m3000[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.29.96.1:[1m3000[22m/[39m
+[2m19:47:21[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.vue, /src/components/layout/Header.vue, /src/views/Login.vue[22m
+[2m19:47:33[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.vue, /src/components/layout/Header.vue, /src/views/Login.vue[22m
+[2m19:47:46[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/App.vue, /src/components/layout/Header.vue, /src/views/Login.vue[22m
+[2m19:47:56[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Login.vue[22m
+[2m19:48:04[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Login.vue[22m
+[2m19:48:14[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Login.vue[22m
+[2m19:48:15[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/Login.vue[22m
+[2m20:18:55[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Header.vue[22m
+[2m20:19:05[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m20:19:13[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m

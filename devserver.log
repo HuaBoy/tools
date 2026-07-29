@@ -1,0 +1,47 @@
+
+> ai-blasting-toolset@1.0.0 dev
+> vite --host 0.0.0.0 --host --port 5173
+
+
+  [32m[1mVITE[22m v5.4.21[39m  [2mready in [0m[1m1262[22m[2m[0m ms[22m
+
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://10.51.22.46:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.0.1:[1m5173[22m/[39m
+  [32m➜[39m  [1mNetwork[22m: [36mhttp://172.29.96.1:[1m5173[22m/[39m
+[2m15:22:52[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mbigscreen_index.html[22m
+[2m16:02:23[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mbigscreen_dev.html[22m
+[2m16:13:41[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+Re-optimizing dependencies because vite config has changed
+[2m16:13:42[22m [36m[1m[vite][22m[39m server restarted.
+[2m16:15:10[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mbigscreen_dev.html[22m
+[2m18:51:01[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/stats/BigScreen.vue[22m
+[2m18:51:03[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m18:51:03[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+Re-optimizing dependencies because vite config has changed
+[2m18:51:03[22m [36m[1m[vite][22m[39m server restarted.
+[2m18:51:06[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m18:51:06[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m18:51:07[22m [36m[1m[vite][22m[39m server restarted.
+[2m15:15:55[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m15:15:57[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m15:25:29[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/overseas/OverseasShipping.vue[22m
+[2m15:31:03[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/overseas/OverseasShipping.vue[22m
+[2m15:32:20[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/views/overseas/OverseasShipping.vue[22m
+[2m15:32:22[22m [36m[1m[vite][22m[39m [32m✨ new dependencies optimized: [33maxios[32m[39m
+[2m15:32:22[22m [36m[1m[vite][22m[39m [32m✨ optimized dependencies changed. reloading[39m
+[2m17:56:44[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/stores/auth.js[22m
+[2m16:12:41[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/stores/auth.js[22m
+[2m16:59:36[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/stores/auth.js[22m
+[2m17:33:50[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/stores/auth.js[22m
+[2m17:33:51[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/stores/auth.js[22m
+[2m10:24:08[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m10:24:10[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m10:54:57[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m10:54:58[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m10:55:00[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m10:55:00[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m11:06:50[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m11:06:52[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m16:14:41[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m16:14:42[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m

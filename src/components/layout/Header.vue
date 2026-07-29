@@ -73,6 +73,22 @@ const handleLogout = async () => {
       }
     );
 
+    // 调用后端退出接口（无状态 JWT，失败也允许本地退出）
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      try {
+        await fetch('/api/logout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          }
+        });
+      } catch (e) {
+        console.warn('调用退出接口失败，仍执行本地退出:', e);
+      }
+    }
+
     // 清除所有缓存
     localStorage.removeItem('auth_user');
     localStorage.removeItem('last_activity');
@@ -83,6 +99,8 @@ const handleLogout = async () => {
     localStorage.removeItem('factory_token');
     localStorage.removeItem('smart_factory_login_time');
     localStorage.removeItem('factory_data_login_record');
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user_info');
     localStorage.clear();
 
     // 重置认证状态
@@ -90,8 +108,8 @@ const handleLogout = async () => {
 
     ElMessage.success('已退出系统，请重新登录');
 
-    // 跳转到登录页
-    router.push('/login');
+    // 跳转到登录页，并替换历史记录防止浏览器回退到主页
+    router.replace('/login');
   } catch (error) {
     // 用户取消退出
   }

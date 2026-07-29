@@ -1,0 +1,26 @@
+import{S as _,r as v,_ as C,z as M,o as B,a as l,c as r,d as k,b as e,F as A,k as I,g as f,h as w,e as S,v as V,R as h,n as T,t as j}from"./index-M_yJGbPD.js";const z=_("chat",()=>{const c=v([{id:1,type:"ai",content:"你好，我是起爆业务AI助手，可以帮你分析日志、查询故障、翻译术语、追溯数据。"}]);function o(d,i){c.value.push({id:Date.now(),type:d,content:i})}function a(){c.value=[{id:1,type:"ai",content:"你好，我是起爆业务AI助手，可以帮你分析日志、查询故障、翻译术语、追溯数据。"}]}return{messages:c,addMessage:o,clearMessages:a}}),D={class:"ai-assistant-page"},H={class:"chat-wrapper"},b={class:"message-avatar"},L={key:0,width:"32",height:"32",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor","stroke-width":"2","stroke-linecap":"round","stroke-linejoin":"round"},K={key:1,width:"32",height:"32",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor","stroke-width":"2","stroke-linecap":"round","stroke-linejoin":"round"},N={class:"message-content"},R={key:0,class:"message-item ai"},E={key:1,class:"welcome-message"},F={class:"chat-input-area"},P=["disabled"],Q={__name:"AiAssistant",setup(c){const o=z(),a=v(""),d=v(null),i=v(!1),p=["根据您的问题，我查询到相关信息如下：","这是一个常见问题，建议按照以下步骤处理：","分析完成，主要问题在于参数配置异常，请检查相关设置。","日志分析结果显示通信故障，建议检查网络连接。","根据起爆数据，任务执行正常，未发现异常。","翻译结果已生成，专业术语已准确转换。","数据追溯链路已完整建立，可以查看详细信息。","故障代码对应的处理方案已找到，请参考知识库。"],m=()=>{const n=[{keyword:["故障","error","报错"],text:`这是一个常见故障问题。建议按照以下步骤处理：
+1. 检查设备连接状态
+2. 查看日志获取详细错误信息
+3. 参考知识库中的对应故障代码解决方案
+4. 如问题仍未解决，请联系技术支持`},{keyword:["日志","log"],text:`日志分析完成。主要发现：
+- 通信故障：3次
+- 参数异常：2次
+- 时序错误：1次
+建议重点关注通信模块，可能存在网络不稳定问题。`},{keyword:["翻译","translate"],text:`专业术语翻译完成。爆破行业常用术语对照：
+- 起爆器 -> Initiator
+- 导爆管 -> Detonating Cord
+- 延时时间 -> Delay Time
+- 起爆网络 -> Blasting Network`},{keyword:["追溯","trace"],text:`数据追溯链路已建立：
+1. 授权记录 -> LIC2026-QB-001
+2. 加密日志 -> LOG_20240115.dat
+3. 起爆任务 -> TASK_00123
+4. 故障记录 -> 无异常
+全链路状态：正常`},{keyword:["授权","license"],text:`当前授权状态：有效
+授权码：LIC2026-QB-001
+剩余天数：365天
+如需转换设备码，请使用「授权码转换工具」页面。`},{keyword:["查询","search","数据"],text:`数据查询功能支持：
+- 设备号模糊搜索
+- 批次号查询
+- 时间范围筛选
+- AI智能检索
+建议在「AI起爆数据查询」页面进行详细查询。`}],t=a.value.toLowerCase();for(const s of n)if(s.keyword.some(x=>t.includes(x)))return s.text;return p[Math.floor(Math.random()*p.length)]},g=async()=>{if(!a.value.trim()||i.value)return;const n=a.value.trim();o.addMessage("user",n),a.value="",i.value=!0,await h(),u(),await new Promise(s=>setTimeout(s,1500));const t=m();o.addMessage("ai",t),i.value=!1,await h(),u()},u=()=>{d.value&&(d.value.scrollTop=d.value.scrollHeight)},y=n=>{n.key==="Enter"&&!n.shiftKey&&(n.preventDefault(),g())};return M(()=>o.messages.length,()=>{h(u)}),B(()=>{u()}),(n,t)=>(l(),r("div",D,[t[6]||(t[6]=k('<div class="page-header" data-v-67a11f40><div class="header-title" data-v-67a11f40><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-v-67a11f40><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" data-v-67a11f40></path></svg><h1 data-v-67a11f40>AI运维智能助手</h1></div><p class="header-desc" data-v-67a11f40>智能问答系统，为您提供专业的运维支持服务</p></div>',1)),e("div",H,[e("div",{ref_key:"chatContainer",ref:d,class:"chat-container"},[(l(!0),r(A,null,I(f(o).messages,s=>(l(),r("div",{key:s.id,class:T(["message-item",s.type])},[e("div",b,[s.type==="ai"?(l(),r("svg",L,[...t[1]||(t[1]=[e("path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"},null,-1)])])):(l(),r("svg",K,[...t[2]||(t[2]=[e("path",{d:"M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"},null,-1),e("circle",{cx:"12",cy:"7",r:"4"},null,-1)])]))]),e("div",N,[e("p",null,j(s.content),1)])],2))),128)),i.value?(l(),r("div",R,[...t[3]||(t[3]=[k('<div class="message-avatar" data-v-67a11f40><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-v-67a11f40><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" data-v-67a11f40></path></svg></div><div class="message-content typing" data-v-67a11f40><span class="typing-dot" data-v-67a11f40></span><span class="typing-dot" data-v-67a11f40></span><span class="typing-dot" data-v-67a11f40></span></div>',2)])])):w("",!0),f(o).messages.length===0?(l(),r("div",E,[...t[4]||(t[4]=[e("div",{class:"welcome-icon"},[e("svg",{width:"64",height:"64",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor","stroke-width":"1.5","stroke-linecap":"round","stroke-linejoin":"round"},[e("path",{d:"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"})])],-1),e("h3",null,"欢迎使用AI运维智能助手",-1),e("p",null,"我可以帮助您解决运维相关问题，例如：",-1),e("ul",{class:"example-questions"},[e("li",null,"故障代码E001怎么处理？"),e("li",null,"如何分析起爆器日志？"),e("li",null,"请翻译专业术语"),e("li",null,"如何追溯数据链路？")],-1)])])):w("",!0)],512),e("div",F,[S(e("textarea",{"onUpdate:modelValue":t[0]||(t[0]=s=>a.value=s),placeholder:"输入您的问题，我来为您解答...",class:"chat-input",onKeydown:y},null,544),[[V,a.value]]),e("button",{class:"send-btn",disabled:!a.value.trim()||i.value,onClick:g},[...t[5]||(t[5]=[e("svg",{width:"18",height:"18",viewBox:"0 0 24 24",fill:"none",stroke:"currentColor","stroke-width":"2","stroke-linecap":"round","stroke-linejoin":"round"},[e("line",{x1:"22",y1:"2",x2:"11",y2:"13"}),e("polygon",{points:"22 2 15 22 11 13 2 9 22 2"})],-1)])],8,P)])])]))}},G=C(Q,[["__scopeId","data-v-67a11f40"]]);export{G as default};
