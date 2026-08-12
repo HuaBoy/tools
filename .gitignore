@@ -1,0 +1,26 @@
+# IDE / CodeBuddy 数据
+.codebuddy/
+.vscode/
+.idea/
+
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+backend/bin/
+*.exe
+
+# 环境配置
+.env
+.env.local
+*.pem
+*.key
+
+# 日志
+logs/
+*.log
+
+# 临时文件
+tmp/
+*.tmp
