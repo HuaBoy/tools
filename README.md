@@ -62,6 +62,13 @@
 | 功能管理 | 功能开关控制 |
 | 数据库管理 | 后台数据库管理 |
 
+### 📱 应用商店
+| 模块 | 说明 |
+|------|------|
+| 盛景 App 管理 | 移动端应用（APK）发布管理：上传安装包/图标、版本管理、启停控制 |
+| 推送管理 | 应用更新/消息推送：支持全部设备或指定设备（SN）定向推送 |
+| 下载分发 | 内置应用详情页，扫码/链接下载 APK 安装包 |
+
 ### 🔌 平台对接
 | 对接 | 说明 |
 |------|------|
@@ -171,13 +178,54 @@ ai-blasting-toolset/
 │   │   └── supabase/        # Supabase 客户端
 │   └── pkg/                 # 公共包（response/jwt/logger）
 ├── scripts/                 # 部署脚本
-├── mobile/                  # 移动端
+├── mobile/                  # 移动端（UniApp 跨端）
+│   └── src/
+│       ├── pages/           # 页面（工作台/诊断/数据/硬件/知识库/工具/管理）
+│       ├── services/        # API 服务
+│       ├── stores/          # 状态管理
+│       ├── components/      # 公共组件
+│       ├── pages.json       # 路由与 tabBar 配置
+│       └── manifest.json    # 应用配置（可编译 APK）
 ├── Dockerfile               # Docker 构建
 ├── docker-compose.yml       # Docker 编排
 ├── vite.config.js           # Vite 配置
 ├── package.json             # 前端依赖
 └── README.md                # 本文档
 ```
+
+---
+
+## 📱 移动端（UniApp）
+
+移动端基于 **UniApp（Vue 3）** 开发，一套代码可编译为 Android APK / iOS App / 小程序 / H5。
+
+```bash
+cd mobile
+npm install
+
+# H5 开发调试
+npm run dev:h5
+
+# 构建 Android APK（需 HBuilderX 或 CLI 环境）
+npm run build:app
+```
+
+### 移动端页面
+
+| 页面 | 说明 |
+|------|------|
+| AI 工作台（首页） | 功能总览入口 |
+| 登录 | 账号密码登录（对接后端 JWT） |
+| 智能诊断 | 起爆器故障诊断 |
+| AI 起爆数据 | 数据查询 |
+| 硬件管理 | 设备列表 |
+| 芯片管理 | 芯片管理 |
+| 固件升级 | 固件版本管理 |
+| AI 知识库 | 知识检索 |
+| 通用工具 | 工具集入口 |
+| 系统管理 | 个人中心/系统设置 |
+
+底部 TabBar：**AI工作台 / 诊断 / 硬件 / 工具 / 我的**
 
 ---
 
@@ -282,6 +330,21 @@ CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/server-linux-amd64 ./cmd/s
 | POST | `/operation-videos` | 新增视频 |
 | PATCH | `/operation-videos/:id` | 更新视频 |
 | DELETE | `/operation-videos/:id` | 删除视频 |
+
+### 应用商店（App Store）
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/apps` | 应用列表（支持 name 模糊搜索） |
+| GET | `/apps/:id` | 应用详情 |
+| POST | `/apps` | 新增应用 |
+| PUT | `/apps/:id` | 更新应用 |
+| DELETE | `/apps/:id` | 删除应用 |
+| POST | `/apps/upload` | 上传 APK/图标（multipart） |
+| GET | `/pushes` | 推送任务列表 |
+| POST | `/pushes` | 创建推送任务（all / specified） |
+| POST | `/pushes/:id/send` | 下发推送 |
+| DELETE | `/pushes/:id` | 删除推送任务 |
+| GET | `/devices/:sn/updates` | 设备按 SN 拉取可见版本 |
 
 ### 系统
 | 方法 | 路径 | 说明 |
@@ -407,7 +470,8 @@ systemctl restart go-server
 项目代码自动同步到以下仓库（每日自动提交推送）：
 
 - **GitHub**：`git@github.com:HuaBoy/tools.git`
-- **Gitee**：`https://gitee.com/makersoft/ai-tracking-and-toolset.git`
+- **Gitee（主仓库）**：`https://gitee.com/makersoft/app-store.git`
+- **Gitee（历史仓库）**：`https://gitee.com/makersoft/ai-tracking-and-toolset.git`
 
 ---
 
