@@ -2,3 +2,85 @@
 {"level":"info","addr":"0.0.0.0:8080","time":"2026-07-23T15:34:07+08:00","message":"服务监听中..."}
 {"level":"info","method":"GET","path":"/api/v1/overseas-shipping","status":401,"ip":"::1","latency":0,"error":"","time":"2026-07-23T15:34:09+08:00","message":"HTTP Request"}
 {"level":"info","method":"GET","path":"/api/v1/overseas-shipping/1","status":401,"ip":"::1","latency":0,"error":"","time":"2026-07-23T15:34:09+08:00","message":"HTTP Request"}
+{"level":"info","mode":"release","port":18080,"supabase_configured":true,"time":"2026-08-12T10:17:15+08:00","message":"启动 tester-platform backend"}
+{"level":"info","time":"2026-08-12T10:17:15+08:00","message":"数据库连接成功"}
+{"level":"warn","error":"迁移失败: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.","time":"2026-08-12T10:17:16+08:00","message":"数据库迁移失败"}
+{"level":"warn","error":"查询 admin 失败: dial tcp [::1]:5432: connectex: No connection could be made because the target machine actively refused it.","time":"2026-08-12T10:17:16+08:00","message":"初始化 admin 密码失败"}
+{"level":"info","addr":"0.0.0.0:18080","time":"2026-08-12T10:17:16+08:00","message":"服务监听中..."}
+{"level":"info","method":"GET","path":"/health","status":200,"ip":"::1","latency":0,"error":"","time":"2026-08-12T10:17:16+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/requirements","status":404,"ip":"::1","latency":0,"error":"","time":"2026-08-12T11:18:12+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/overseas/shipping","status":404,"ip":"::1","latency":0,"error":"","time":"2026-08-12T11:18:12+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/health","status":200,"ip":"::1","latency":0.5707,"error":"","time":"2026-08-12T11:18:31+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":400,"ip":"::1","latency":1.1201,"error":"","time":"2026-08-12T11:18:32+08:00","message":"HTTP Request"}
+{"level":"info","mode":"release","port":8081,"supabase_configured":true,"time":"2026-08-12T11:44:49+08:00","message":"启动 tester-platform backend"}
+{"level":"info","time":"2026-08-12T11:44:49+08:00","message":"数据库连接成功"}
+{"level":"warn","error":"迁移失败: pq: extension \"vector\" is not available","time":"2026-08-12T11:44:50+08:00","message":"数据库迁移失败"}
+{"level":"info","time":"2026-08-12T11:44:50+08:00","message":"admin 密码已重置为 800228"}
+{"level":"info","addr":"0.0.0.0:8081","time":"2026-08-12T11:44:50+08:00","message":"服务监听中..."}
+{"level":"info","method":"GET","path":"/health","status":200,"ip":"::1","latency":0.5862,"error":"","time":"2026-08-12T11:45:01+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":400,"ip":"::1","latency":0,"error":"","time":"2026-08-12T11:45:02+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":96.0403,"error":"","time":"2026-08-12T11:45:12+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/requirements","status":200,"ip":"::1","latency":2.7765,"error":"","time":"2026-08-12T11:46:06+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements","status":200,"ip":"::1","latency":11.2782,"error":"","time":"2026-08-12T11:46:06+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements","status":400,"ip":"::1","latency":0.1754,"error":"","time":"2026-08-12T11:46:06+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements/1/reviews","status":400,"ip":"::1","latency":1.3232,"error":"","time":"2026-08-12T11:46:06+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements/1/deliverables","status":200,"ip":"::1","latency":2.1566,"error":"","time":"2026-08-12T11:46:06+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/requirements/1","status":200,"ip":"::1","latency":3.419,"error":"","time":"2026-08-12T11:46:06+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements/1/reviews","status":200,"ip":"::1","latency":11.6686,"error":"","time":"2026-08-12T11:46:06+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/board","status":200,"ip":"::1","latency":1.2032,"error":"","time":"2026-08-12T11:46:06+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/requirements","status":200,"ip":"::1","latency":3.2151,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements","status":200,"ip":"::1","latency":26.9463,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"PATCH","path":"/api/v1/pipeline/requirements/2/status","status":200,"ip":"::1","latency":11.0844,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"PATCH","path":"/api/v1/pipeline/requirements/2/status","status":200,"ip":"::1","latency":11.3022,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"PATCH","path":"/api/v1/pipeline/requirements/2/status","status":200,"ip":"::1","latency":10.5708,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"PATCH","path":"/api/v1/pipeline/requirements/2/status","status":200,"ip":"::1","latency":11.0212,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"PATCH","path":"/api/v1/pipeline/requirements/2/status","status":200,"ip":"::1","latency":12.3105,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"PATCH","path":"/api/v1/pipeline/requirements/2/status","status":200,"ip":"::1","latency":9.7547,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"PATCH","path":"/api/v1/pipeline/requirements/2/status","status":400,"ip":"::1","latency":1.5131,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements/2/reviews","status":200,"ip":"::1","latency":5.127,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"DELETE","path":"/api/v1/pipeline/requirements/2","status":400,"ip":"::1","latency":1.298,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/requirements/2","status":200,"ip":"::1","latency":5.1063,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements","status":200,"ip":"::1","latency":11.0009,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/pipeline/requirements/3/reviews","status":200,"ip":"::1","latency":14.1255,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/requirements/3","status":200,"ip":"::1","latency":3.8104,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/board","status":200,"ip":"::1","latency":1,"error":"","time":"2026-08-12T11:46:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/pipeline/health","status":404,"ip":"::1","latency":0,"error":"","time":"2026-08-12T13:12:36+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-12T13:17:14+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-12T13:17:19+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-12T13:42:46+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-12T13:51:34+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-12T13:55:37+08:00","message":"HTTP Request"}
+{"level":"info","mode":"release","port":8080,"supabase_configured":true,"time":"2026-08-12T14:01:05+08:00","message":"启动 tester-platform backend"}
+{"level":"info","time":"2026-08-12T14:01:05+08:00","message":"数据库连接成功"}
+{"level":"info","time":"2026-08-12T14:01:06+08:00","message":"数据库迁移完成 (operation_manuals / operation_videos / knowledge / ai_pipeline)"}
+{"level":"info","time":"2026-08-12T14:01:06+08:00","message":"admin 密码已重置为 800228"}
+{"level":"info","addr":"0.0.0.0:8080","time":"2026-08-12T14:01:06+08:00","message":"服务监听中..."}
+{"level":"info","method":"GET","path":"/health","status":200,"ip":"::1","latency":0.5325,"error":"","time":"2026-08-12T14:01:09+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":84.1868,"error":"","time":"2026-08-12T14:01:30+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":77.1718,"error":"","time":"2026-08-12T14:01:36+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/knowledge/stats","status":200,"ip":"::1","latency":37.917,"error":"","time":"2026-08-12T14:01:36+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":81.1153,"error":"","time":"2026-08-12T14:01:46+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":88.5244,"error":"","time":"2026-08-12T14:01:50+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/knowledge/documents/upload","status":200,"ip":"::1","latency":7021.5658,"error":"","time":"2026-08-12T14:01:57+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":81.5145,"error":"","time":"2026-08-12T14:02:04+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/knowledge/search","status":200,"ip":"::1","latency":313.6377,"error":"","time":"2026-08-12T14:02:05+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":86.2839,"error":"","time":"2026-08-12T14:02:11+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/knowledge/chat","status":200,"ip":"::1","latency":42123.3436,"error":"","time":"2026-08-12T14:02:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":79.3808,"error":"","time":"2026-08-12T14:03:05+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/knowledge/chat","status":200,"ip":"::1","latency":93014.5142,"error":"","time":"2026-08-12T14:04:38+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":76.3821,"error":"","time":"2026-08-12T14:04:53+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/knowledge/chat","status":200,"ip":"::1","latency":39015.4468,"error":"","time":"2026-08-12T14:05:32+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":81.6498,"error":"","time":"2026-08-12T14:05:37+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/knowledge/chat","status":200,"ip":"::1","latency":58357.2095,"error":"","time":"2026-08-12T14:06:35+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":84.5395,"error":"","time":"2026-08-12T14:06:50+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/knowledge/faqs","status":200,"ip":"::1","latency":9212.9444,"error":"","time":"2026-08-12T14:06:59+08:00","message":"HTTP Request"}
+{"level":"info","mode":"release","port":8080,"supabase_configured":true,"time":"2026-08-12T14:07:24+08:00","message":"启动 tester-platform backend"}
+{"level":"info","time":"2026-08-12T14:07:24+08:00","message":"数据库连接成功"}
+{"level":"info","time":"2026-08-12T14:07:25+08:00","message":"数据库迁移完成 (operation_manuals / operation_videos / knowledge / ai_pipeline)"}
+{"level":"info","time":"2026-08-12T14:07:25+08:00","message":"admin 密码已重置为 800228"}
+{"level":"info","addr":"0.0.0.0:8080","time":"2026-08-12T14:07:25+08:00","message":"服务监听中..."}
+{"level":"info","method":"GET","path":"/health","status":200,"ip":"::1","latency":0,"error":"","time":"2026-08-12T14:07:28+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/health","status":404,"ip":"::1","latency":0,"error":"","time":"2026-08-12T14:10:56+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":60.4245,"error":"","time":"2026-08-12T14:11:04+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":57.5124,"error":"","time":"2026-08-12T14:11:12+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/api/v1/knowledge/stats","status":200,"ip":"::1","latency":34.9603,"error":"","time":"2026-08-12T14:11:12+08:00","message":"HTTP Request"}

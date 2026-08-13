@@ -91,9 +91,21 @@ const routes = [
       meta: { requiresAuth: true }
     },
   {
-      path: '/knowledge/audio',
-      name: 'AudioRecorder',
+    path: '/knowledge/audio',
+    name: 'AudioRecorder',
     component: () => import('@/views/knowledge/AudioRecorder.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/knowledge/base',
+    name: 'KnowledgeBase',
+    component: () => import('@/views/knowledge/KnowledgeBase.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/knowledge/ai-chat',
+    name: 'KnowledgeAiChat',
+    component: () => import('@/views/knowledge/AiChat.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -241,6 +253,25 @@ const routes = [
     path: '/overseas/blasting-design',
     name: 'BlastingDesign',
     component: () => import('@/views/overseas/BlastingDesign.vue'),
+    meta: { requiresAuth: true }
+  },
+  // ===== AI 研发流水线（REQ-2026-001） =====
+  {
+    path: '/pipeline/requirements',
+    name: 'PipelineRequirementPool',
+    component: () => import('@/views/pipeline/RequirementPool.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/pipeline/board',
+    name: 'PipelineBoard',
+    component: () => import('@/views/pipeline/PipelineBoard.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/pipeline/review',
+    name: 'PipelineReview',
+    component: () => import('@/views/pipeline/ReviewCenter.vue'),
     meta: { requiresAuth: true }
   }
 ]

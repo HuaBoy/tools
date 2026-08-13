@@ -271,3 +271,147 @@ More info and automated migrator: https://sass-lang.com/d/import
   ╵
     src\views\sales\SalesWorkbench.vue 1:9  root stylesheet
 
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+  ╷
+1 │ @import "@/assets/styles/variables.scss";@import './variables.scss';
+  │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  ╵
+    src\assets\styles\global.scss 1:9  root stylesheet
+
+DEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+  ╷
+1 │ @import "@/assets/styles/variables.scss";@import './variables.scss';
+  │                                                  ^^^^^^^^^^^^^^^^^^
+  ╵
+    src\assets\styles\global.scss 1:50  root stylesheet
+
+DEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.
+Use color.adjust instead.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+   ╷
+56 │   background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+   │                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    src\assets\styles\global.scss 56:58  root stylesheet
+
+DEPRECATION WARNING [color-functions]: darken() is deprecated. Suggestions:
+
+color.scale($color, $lightness: -18.4115523466%)
+color.adjust($color, $lightness: -10%)
+
+More info: https://sass-lang.com/d/color-functions
+
+   ╷
+56 │   background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+   │                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    src\assets\styles\global.scss 56:58  root stylesheet
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+  ╷
+1 │ @import "@/assets/styles/variables.scss";@import './variables.scss';
+  │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  ╵
+    src\assets\styles\global.scss 1:9  root stylesheet
+
+DEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+  ╷
+1 │ @import "@/assets/styles/variables.scss";@import './variables.scss';
+  │                                                  ^^^^^^^^^^^^^^^^^^
+  ╵
+    src\assets\styles\global.scss 1:50  root stylesheet
+
+DEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.
+Use color.adjust instead.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+   ╷
+56 │   background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+   │                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    src\assets\styles\global.scss 56:58  root stylesheet
+
+DEPRECATION WARNING [color-functions]: darken() is deprecated. Suggestions:
+
+color.scale($color, $lightness: -18.4115523466%)
+color.adjust($color, $lightness: -10%)
+
+More info: https://sass-lang.com/d/color-functions
+
+   ╷
+56 │   background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+   │                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    src\assets\styles\global.scss 56:58  root stylesheet
+
+DEPRECATION WARNING [legacy-js-api]: The legacy JS API is deprecated and will be removed in Dart Sass 2.0.0.
+
+More info: https://sass-lang.com/d/legacy-js-api
+
+DEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+  ╷
+1 │ @import "@/assets/styles/variables.scss";@import './variables.scss';
+  │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  ╵
+    src\assets\styles\global.scss 1:9  root stylesheet
+
+DEPRECATION WARNING [import]: Sass @import rules are deprecated and will be removed in Dart Sass 3.0.0.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+  ╷
+1 │ @import "@/assets/styles/variables.scss";@import './variables.scss';
+  │                                                  ^^^^^^^^^^^^^^^^^^
+  ╵
+    src\assets\styles\global.scss 1:50  root stylesheet
+
+DEPRECATION WARNING [global-builtin]: Global built-in functions are deprecated and will be removed in Dart Sass 3.0.0.
+Use color.adjust instead.
+
+More info and automated migrator: https://sass-lang.com/d/import
+
+   ╷
+56 │   background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+   │                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    src\assets\styles\global.scss 56:58  root stylesheet
+
+DEPRECATION WARNING [color-functions]: darken() is deprecated. Suggestions:
+
+color.scale($color, $lightness: -18.4115523466%)
+color.adjust($color, $lightness: -10%)
+
+More info: https://sass-lang.com/d/color-functions
+
+   ╷
+56 │   background: linear-gradient(135deg, $primary-color 0%, darken($primary-color, 10%) 100%);
+   │                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ╵
+    src\assets\styles\global.scss 56:58  root stylesheet
+

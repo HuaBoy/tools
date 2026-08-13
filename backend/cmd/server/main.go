@@ -101,13 +101,138 @@ func runMigrations(db *sql.DB) error {
 			views INTEGER DEFAULT 0,
 			date DATE DEFAULT CURRENT_DATE
 		)`,
+		// ===== 用户登录表（新部署时初始化，兼容 sys_user 登录方案） =====
+		`CREATE TABLE IF NOT EXISTS public.sys_user (
+			id SERIAL PRIMARY KEY,
+			username TEXT NOT NULL UNIQUE,
+			password TEXT NOT NULL DEFAULT '',
+			email TEXT NOT NULL DEFAULT '',
+			role TEXT NOT NULL DEFAULT 'user',
+			permissions TEXT NOT NULL DEFAULT '[]',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`INSERT INTO public.sys_user (username, password, email, role, permissions)
+		 SELECT 'admin', '', 'admin@local', 'admin', '["*"]'
+		 WHERE NOT EXISTS (SELECT 1 FROM public.sys_user WHERE username = 'admin')`,
+		// ===== 知识库 (pgvector) =====
+		`CREATE EXTENSION IF NOT EXISTS vector`,
+		`CREATE TABLE IF NOT EXISTS public.knowledge_documents (
+			id SERIAL PRIMARY KEY,
+			title TEXT NOT NULL DEFAULT '',
+			category TEXT NOT NULL DEFAULT 'other',
+			description TEXT NOT NULL DEFAULT '',
+			file_name TEXT NOT NULL DEFAULT '',
+			file_type TEXT NOT NULL DEFAULT '',
+			file_size BIGINT NOT NULL DEFAULT 0,
+			storage_path TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'processing',
+			chunk_count INT NOT NULL DEFAULT 0,
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS public.knowledge_chunks (
+			id SERIAL PRIMARY KEY,
+			document_id INT NOT NULL REFERENCES public.knowledge_documents(id) ON DELETE CASCADE,
+			chunk_index INT NOT NULL DEFAULT 0,
+			content TEXT NOT NULL,
+			embedding vector(1024),
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding
+			ON public.knowledge_chunks USING hnsw (embedding vector_cosine_ops)`,
+		`CREATE TABLE IF NOT EXISTS public.knowledge_faqs (
+			id SERIAL PRIMARY KEY,
+			question TEXT NOT NULL,
+			answer TEXT NOT NULL,
+			category TEXT NOT NULL DEFAULT 'other',
+			tags TEXT NOT NULL DEFAULT '[]',
+			embedding vector(1024),
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_knowledge_faqs_embedding
+			ON public.knowledge_faqs USING hnsw (embedding vector_cosine_ops)`,
+		`CREATE TABLE IF NOT EXISTS public.knowledge_conversations (
+			id SERIAL PRIMARY KEY,
+			title TEXT NOT NULL DEFAULT '新对话',
+			user_id TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS public.knowledge_messages (
+			id SERIAL PRIMARY KEY,
+			conversation_id INT NOT NULL REFERENCES public.knowledge_conversations(id) ON DELETE CASCADE,
+			role TEXT NOT NULL,
+			content TEXT NOT NULL,
+			sources TEXT NOT NULL DEFAULT '[]',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_knowledge_messages_conversation
+			ON public.knowledge_messages(conversation_id)`,
+		// ===== AI 研发流水线（REQ-2026-001）=====
+		`CREATE TABLE IF NOT EXISTS public.ai_pipeline_requirements (
+			id SERIAL PRIMARY KEY,
+			req_no TEXT NOT NULL UNIQUE,
+			title TEXT NOT NULL DEFAULT '',
+			description TEXT NOT NULL DEFAULT '',
+			kano_category TEXT NOT NULL DEFAULT 'O',
+			aarrr_impacts TEXT NOT NULL DEFAULT '[]',
+			priority TEXT NOT NULL DEFAULT 'P2',
+			status TEXT NOT NULL DEFAULT 'draft',
+			source TEXT NOT NULL DEFAULT '',
+			created_by INT NOT NULL DEFAULT 0,
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+			updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS public.ai_pipeline_stages (
+			id SERIAL PRIMARY KEY,
+			req_id INT NOT NULL REFERENCES public.ai_pipeline_requirements(id) ON DELETE CASCADE,
+			stage TEXT NOT NULL DEFAULT '',
+			status TEXT NOT NULL DEFAULT 'todo',
+			started_at TIMESTAMPTZ,
+			finished_at TIMESTAMPTZ,
+			note TEXT NOT NULL DEFAULT ''
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_ai_pipeline_stages_req
+			ON public.ai_pipeline_stages(req_id)`,
+		`CREATE TABLE IF NOT EXISTS public.ai_pipeline_deliverables (
+			id SERIAL PRIMARY KEY,
+			req_id INT NOT NULL REFERENCES public.ai_pipeline_requirements(id) ON DELETE CASCADE,
+			stage TEXT NOT NULL DEFAULT '',
+			title TEXT NOT NULL DEFAULT '',
+			file_type TEXT NOT NULL DEFAULT '',
+			file_path TEXT NOT NULL DEFAULT '',
+			url TEXT NOT NULL DEFAULT '',
+			created_by TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		`CREATE TABLE IF NOT EXISTS public.ai_pipeline_reviews (
+			id SERIAL PRIMARY KEY,
+			req_id INT NOT NULL REFERENCES public.ai_pipeline_requirements(id) ON DELETE CASCADE,
+			action TEXT NOT NULL DEFAULT '',
+			target_stage TEXT NOT NULL DEFAULT '',
+			reason TEXT NOT NULL DEFAULT '',
+			reviewed_by INT NOT NULL DEFAULT 0,
+			reviewed_name TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`,
+		// 流水线权限码（供功能管理界面按需分配给角色）
+		`INSERT INTO public.features (code, name, description, category, enabled, "order")
+		 SELECT v.code, v.name, v.description, v.category, true, v.ord FROM (VALUES
+			('pipeline:view', '流水线查看', '查看 AI 研发流水线（需求池/看板/交付物）', 'pipeline', 90),
+			('pipeline:edit', '流水线编辑', '编辑需求、维护交付物', 'pipeline', 91),
+			('pipeline:review', '流水线审核', '需求审核通过/打回', 'pipeline', 92)
+		 ) AS v(code, name, description, category, ord)
+		 WHERE NOT EXISTS (SELECT 1 FROM public.features WHERE code = v.code)`,
 	}
 	for _, m := range migrations {
 		if _, err := db.Exec(m); err != nil {
 			return fmt.Errorf("迁移失败: %w", err)
 		}
 	}
-	log.Info().Msg("数据库迁移完成 (operation_manuals / operation_videos)")
+	log.Info().Msg("数据库迁移完成 (operation_manuals / operation_videos / knowledge / ai_pipeline)")
 	return nil
 }
 

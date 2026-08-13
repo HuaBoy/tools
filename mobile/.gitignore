@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+unpackage/
+build/
+.unpackage/
+
+# HBuilderX
+.hbuilderx/
+.idea/
+*.iml
+
+# Editor
+.vscode/
+.DS_Store
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary
+.tmp/
+temp/

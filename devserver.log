@@ -45,3 +45,21 @@ Re-optimizing dependencies because vite config has changed
 [2m11:06:52[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
 [2m16:14:41[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
 [2m16:14:42[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m10:12:05[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mdocs/prototypes/REQ-2026-001.html[22m
+[2m10:12:18[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2mdocs/prototypes/REQ-2026-001.html[22m
+[2m10:13:31[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m10:13:55[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m10:18:31[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+Re-optimizing dependencies because lockfile has changed
+[2m10:18:31[22m [36m[1m[vite][22m[39m server restarted.
+[2m10:18:44[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m10:18:44[22m [36m[1m[vite][22m[39m server restarted.
+[2m11:12:47[22m [36m[1m[vite][22m[39m [32mpage reload [39m[2msrc/router/index.js[22m
+[2m11:12:58[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m11:13:02[22m [36m[1m[vite][22m[39m [32mhmr update [39m[2m/src/components/layout/Sidebar.vue[22m
+[2m11:47:16[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m11:47:16[22m [36m[1m[vite][22m[39m server restarted.
+[2m13:58:23[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m13:58:23[22m [36m[1m[vite][22m[39m server restarted.
+[2m14:08:01[22m [36m[1m[vite][22m[39m [32mvite.config.js changed, restarting server...[39m
+[2m14:08:01[22m [36m[1m[vite][22m[39m server restarted.

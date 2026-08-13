@@ -1,6 +1,46 @@
 version: '3.8'
 
 services:
+  # ===== 本地大模型推理服务 =====
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ai-kb-ollama
+    restart: always
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./data/ollama:/root/.ollama
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - tester-net
+    # 首次启动后需要拉取模型：
+    #   docker exec ai-kb-ollama ollama pull deepseek-r1:7b
+    #   docker exec ai-kb-ollama ollama pull bge-small-zh-v1.5
+
+  # ===== PostgreSQL + pgvector =====
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-kb-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${PG_USER:-kbuser}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-kbpass_2026}
+      POSTGRES_DB: ${PG_DB:-knowledge}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    networks:
+      - tester-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER:-kbuser} -d ${PG_DB:-knowledge}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===== Go 后端 =====
   backend:
     build:
       context: ./backend
@@ -12,10 +52,18 @@ services:
     environment:
       - GIN_MODE=release
       - TZ=Asia/Shanghai
+      - OLLAMA_URL=http://ollama:11434
+      # 注意：DB_DSN 指向 docker 内的 postgres 服务
+      - DB_DSN=postgres://${PG_USER:-kbuser}:${PG_PASSWORD:-kbpass_2026}@postgres:5432/${PG_DB:-knowledge}?sslmode=disable
+      - DATABASE_URL=postgres://${PG_USER:-kbuser}:${PG_PASSWORD:-kbpass_2026}@postgres:5432/${PG_DB:-knowledge}?sslmode=disable
     env_file:
       - ./backend/.env
     volumes:
       - ./backend/logs:/app/logs
+      - ./data/knowledge:/app/data/knowledge
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - tester-net
     healthcheck:
@@ -25,6 +73,7 @@ services:
       retries: 3
       start_period: 10s
 
+  # ===== 前端 =====
   frontend:
     build:
       context: .

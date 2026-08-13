@@ -16,6 +16,15 @@ type Config struct {
 	JWT      JWTConfig
 	CORS     CORSConfig
 	Log      LogConfig
+	Ollama   OllamaConfig
+}
+
+// OllamaConfig Ollama 配置
+type OllamaConfig struct {
+	URL           string // Ollama 服务地址
+	EmbeddingModel string // 嵌入模型
+	ChatModel     string // 对话模型
+	StoreDir      string // 文档存储目录
 }
 
 // ServerConfig 服务配置
@@ -83,6 +92,12 @@ func Load() error {
 		Log: LogConfig{
 			Level: getEnv("LOG_LEVEL", "debug"),
 			File:  getEnv("LOG_FILE", ""),
+		},
+		Ollama: OllamaConfig{
+			URL:            getEnv("OLLAMA_URL", "http://localhost:11434"),
+			EmbeddingModel: getEnv("OLLAMA_EMBEDDING_MODEL", "bge-m3"),
+			ChatModel:      getEnv("OLLAMA_CHAT_MODEL", "deepseek-r1:7b"),
+			StoreDir:       getEnv("KNOWLEDGE_STORE_DIR", "./data/knowledge"),
 		},
 	}
 

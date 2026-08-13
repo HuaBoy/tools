@@ -7,7 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tester-platform/backend/internal/config"
 	"github.com/tester-platform/backend/internal/handlers"
+	"github.com/tester-platform/backend/internal/knowledge"
 	"github.com/tester-platform/backend/internal/middleware"
+	"github.com/tester-platform/backend/internal/ollama"
 	"github.com/tester-platform/backend/internal/supabase"
 	"github.com/tester-platform/backend/pkg/jwt"
 )
@@ -31,6 +33,16 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager, db *sql.DB) *gin.En
 		MaxAge:           12 * 3600,
 	}))
 
+	// 初始化 Ollama 客户端 + 知识库服务
+	ollamaClient := ollama.NewClient(config.App.Ollama.URL)
+	knowledgeService := knowledge.NewService(
+		db,
+		ollamaClient,
+		config.App.Ollama.EmbeddingModel,
+		config.App.Ollama.ChatModel,
+		config.App.Ollama.StoreDir,
+	)
+
 	// 初始化 handlers
 	healthHandler := handlers.NewHealthHandler()
 	authHandler := handlers.NewAuthHandler(client, jwtManager, db)
@@ -38,8 +50,11 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager, db *sql.DB) *gin.En
 	roleHandler := handlers.NewRoleHandler(client)
 	featureHandler := handlers.NewFeatureHandler(client)
 	overseasShippingHandler := handlers.NewOverseasShippingHandler(db)
+	pipelineHandler := handlers.NewPipelineHandler(db)
 	manualHandler := handlers.NewOperationManualHandler(db)
 	videoHandler := handlers.NewOperationVideoHandler(db)
+	knowledgeHandler := handlers.NewKnowledgeHandler(knowledgeService)
+	chatHandler := handlers.NewChatHandler(knowledgeService)
 
 	// 健康检查（无需认证）
 	r.GET("/health", healthHandler.Health)
@@ -105,6 +120,24 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager, db *sql.DB) *gin.En
 			overseasShipping.DELETE("/:id", overseasShippingHandler.Delete)
 		}
 
+		// ===== AI 研发流水线（REQ-2026-001）=====
+		pipeline := auth.Group("/pipeline")
+		{
+			pipeline.GET("/requirements", pipelineHandler.ListRequirements)
+			pipeline.GET("/requirements/:id", pipelineHandler.GetRequirement)
+			pipeline.POST("/requirements", pipelineHandler.CreateRequirement)
+			pipeline.PATCH("/requirements/:id", pipelineHandler.UpdateRequirement)
+			pipeline.DELETE("/requirements/:id", pipelineHandler.DeleteRequirement)
+			pipeline.PATCH("/requirements/:id/status", pipelineHandler.ChangeStatus)
+			pipeline.GET("/requirements/:id/stages", pipelineHandler.GetStages)
+			pipeline.GET("/requirements/:id/deliverables", pipelineHandler.GetDeliverables)
+			pipeline.POST("/requirements/:id/deliverables", pipelineHandler.CreateDeliverable)
+			pipeline.DELETE("/deliverables/:id", pipelineHandler.DeleteDeliverable)
+			pipeline.GET("/requirements/:id/reviews", pipelineHandler.GetReviews)
+			pipeline.POST("/requirements/:id/reviews", pipelineHandler.CreateReview)
+			pipeline.GET("/board", pipelineHandler.GetBoard)
+		}
+
 		// 操作手册
 		manual := auth.Group("/operation-manuals")
 		{
@@ -123,6 +156,35 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager, db *sql.DB) *gin.En
 			video.POST("", videoHandler.Create)
 			video.PATCH("/:id", videoHandler.Update)
 			video.DELETE("/:id", videoHandler.Delete)
+		}
+
+		// ===== 知识库 + 问题库 + AI 对话 =====
+		knowledgeGroup := auth.Group("/knowledge")
+		{
+			// 统计与状态
+			knowledgeGroup.GET("/stats", knowledgeHandler.Stats)
+
+			// 文档管理
+			knowledgeGroup.GET("/documents", knowledgeHandler.List)
+			knowledgeGroup.GET("/documents/:id", knowledgeHandler.Get)
+			knowledgeGroup.POST("/documents/upload", knowledgeHandler.Upload)
+			knowledgeGroup.DELETE("/documents/:id", knowledgeHandler.Delete)
+
+			// 搜索
+			knowledgeGroup.GET("/search", knowledgeHandler.Search)
+			knowledgeGroup.POST("/search", knowledgeHandler.Search)
+
+			// 问题库 FAQ
+			knowledgeGroup.GET("/faqs", knowledgeHandler.ListFAQs)
+			knowledgeGroup.POST("/faqs", knowledgeHandler.CreateFAQ)
+			knowledgeGroup.DELETE("/faqs/:id", knowledgeHandler.DeleteFAQ)
+
+			// AI 对话
+			knowledgeGroup.POST("/chat", chatHandler.Send)
+
+			// 会话管理
+			knowledgeGroup.GET("/conversations", chatHandler.Conversations)
+			knowledgeGroup.GET("/conversations/:id/messages", chatHandler.History)
 		}
 	}
 	}

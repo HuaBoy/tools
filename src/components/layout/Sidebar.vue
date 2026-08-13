@@ -63,7 +63,9 @@ const menuGroups = [
     name: 'AI知识库',
     icon: 'book',
     children: [
-      { name: '智能知识库(RAG)', path: '/knowledge/rag', icon: 'brain', highlight: true },
+      { name: 'AI 智能问答', path: '/knowledge/ai-chat', icon: 'bot', highlight: true },
+      { name: '知识库管理', path: '/knowledge/base', icon: 'database', highlight: true },
+      { name: '智能知识库(RAG)', path: '/knowledge/rag', icon: 'brain' },
       { name: '起爆器版本手册', path: '/knowledge/manual', icon: 'book-open' },
       { name: '起爆器版本履历', path: '/knowledge/history', icon: 'history' },
       { name: '产线履历', path: '/knowledge/production-history', icon: 'factory' },
@@ -105,6 +107,15 @@ const menuGroups = [
     icon: 'cpu',
     children: [
       { name: 'AI-PCB 助手', path: '/ai/pcb', icon: 'wrench', highlight: true }
+    ]
+  },
+  {
+    name: 'AI研发流水线',
+    icon: 'git-branch',
+    children: [
+      { name: '需求池管理', path: '/pipeline/requirements', icon: 'box', highlight: true },
+      { name: '流水线看板', path: '/pipeline/board', icon: 'trending-up', highlight: true },
+      { name: '审核中心', path: '/pipeline/review', icon: 'send', highlight: true }
     ]
   },
   {
@@ -184,6 +195,7 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile) })
               <svg v-else-if="group.icon === 'package'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
               <svg v-else-if="group.icon === 'settings'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               <svg v-else-if="group.icon === 'trending-up'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+              <svg v-else-if="group.icon === 'git-branch'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="6" y1="3" x2="6" y2="21"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
               <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
             </div>
             <span class="group-name">{{ group.name }}</span>

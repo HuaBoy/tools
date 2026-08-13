@@ -7,10 +7,11 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/joho/godotenv v1.5.1
+	github.com/ledongthuc/pdf v0.0.0-20220302134840-0c2507a12d80
 	github.com/rs/zerolog v1.33.0
 )
 
-require github.com/lib/pq v1.10.9 // indirect
+require github.com/lib/pq v1.10.9
 
 require (
 	github.com/bytedance/sonic v1.11.6 // indirect

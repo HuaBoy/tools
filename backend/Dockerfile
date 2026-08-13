@@ -39,8 +39,8 @@ WORKDIR /app
 # 复制编译产物
 COPY --from=builder /app/bin/tester-platform /app/tester-platform
 
-# 创建日志目录
-RUN mkdir -p /app/logs && chown -R appuser:appgroup /app
+# 创建日志目录和知识库存储目录
+RUN mkdir -p /app/logs /app/data/knowledge && chown -R appuser:appgroup /app
 
 # 切换到非 root 用户
 USER appuser
