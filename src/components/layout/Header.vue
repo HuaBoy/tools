@@ -1,55 +1,14 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import {
-  loginStatus,
-  initLoginStatus
-} from '@/utils/loginStatus.js';
 
 const emit = defineEmits(['toggle-sidebar']);
 const router = useRouter();
 
 const authStore = useAuthStore();
 const searchQuery = ref('');
-
-// 本地状态镜像（确保响应式触发）
-const mpLoggedIn = ref(false);
-const smartLoggedIn = ref(false);
-
-const syncLoginStatus = () => {
-  mpLoggedIn.value = loginStatus.mp;
-  smartLoggedIn.value = loginStatus.smart;
-};
-
-onMounted(() => {
-  initLoginStatus();
-  // 立即同步一次
-  syncLoginStatus();
-  // 监听全局登录状态变化
-  watch(() => loginStatus.mp, (newVal) => {
-    mpLoggedIn.value = newVal;
-  });
-  watch(() => loginStatus.smart, (newVal) => {
-    smartLoggedIn.value = newVal;
-  });
-  // 监听 window 自定义事件（兜底机制）
-  const handleWindowLoginChange = (event) => {
-    const { platform, status } = event.detail || {};
-    if (platform === 'mp' || platform === 'smart' || platform === 'iot') {
-      mpLoggedIn.value = platform === 'mp' ? status : loginStatus.mp;
-      smartLoggedIn.value = platform === 'smart' || platform === 'iot' ? status : loginStatus.smart;
-    }
-  };
-  window.addEventListener('login-status-changed', handleWindowLoginChange);
-  // 兜底：每 3 秒同步一次（防止漏掉的事件）
-  const statusInterval = setInterval(syncLoginStatus, 3000);
-  onUnmounted(() => {
-    clearInterval(statusInterval);
-    window.removeEventListener('login-status-changed', handleWindowLoginChange);
-  });
-});
 
 const handleSearch = () => {
   if (searchQuery.value.trim()) {
@@ -137,16 +96,6 @@ const handleLogout = async () => {
     </div>
 
     <div class="header-right">
-      <!-- 三方账号授权状态（实时同步） -->
-      <div class="auth-status-group">
-        <el-tag :type="mpLoggedIn ? 'success' : 'info'" size="small" class="auth-status-tag">
-          云平台 {{ mpLoggedIn ? '已登录' : '未登录' }}
-        </el-tag>
-        <el-tag :type="smartLoggedIn ? 'success' : 'info'" size="small" class="auth-status-tag">
-          智能制造 {{ smartLoggedIn ? '已登录' : '未登录' }}
-        </el-tag>
-      </div>
-
       <el-tag :type="authStore.authStatus === 'valid' ? 'success' : 'danger'" class="auth-tag">
         {{ authStore.statusText }} · {{ authStore.remainingDays }}天
       </el-tag>
