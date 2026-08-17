@@ -84,3 +84,15 @@
 {"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":60.4245,"error":"","time":"2026-08-12T14:11:04+08:00","message":"HTTP Request"}
 {"level":"info","method":"POST","path":"/api/v1/auth/login","status":200,"ip":"::1","latency":57.5124,"error":"","time":"2026-08-12T14:11:12+08:00","message":"HTTP Request"}
 {"level":"info","method":"GET","path":"/api/v1/knowledge/stats","status":200,"ip":"::1","latency":34.9603,"error":"","time":"2026-08-12T14:11:12+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:38+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:39+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:40+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:42+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:43+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:43+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:43+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:51+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:51+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:52+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:56+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:18:03+08:00","message":"HTTP Request"}
