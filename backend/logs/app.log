@@ -96,3 +96,5 @@
 {"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:52+08:00","message":"HTTP Request"}
 {"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:17:56+08:00","message":"HTTP Request"}
 {"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-17T14:18:03+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-19T13:40:54+08:00","message":"HTTP Request"}
+{"level":"info","method":"POST","path":"/api/v1/auth/login","status":403,"ip":"::1","latency":0,"error":"","time":"2026-08-19T13:43:48+08:00","message":"HTTP Request"}

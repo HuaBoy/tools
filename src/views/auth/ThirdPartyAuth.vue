@@ -5,6 +5,11 @@ import GlassCard from '@/components/GlassCard.vue';
 import CryptoJS from 'crypto-js';
 import { updateLoginStatus, saveCredentials as saveUnifiedCredentials, loginStatus, onLoginStatusChange } from '@/utils/loginStatus.js';
 import { performLogin } from '@/utils/platformLogin.js';
+import { platformApis } from '@/data/platformApis.js';
+
+// 接口说明区块：当前选中的平台
+const activeApiDocPlatform = ref('mp');
+const activeApiDoc = computed(() => platformApis.find(p => p.id === activeApiDocPlatform.value) || platformApis[0]);
 
 const API_LOGIN_URL = 'https://mp.holyview.cn:9443/api/blade-auth/oauth/token';
 const FACTORY_LOGIN_URL = '/iot-api/api/blade-auth/oauth/token';
@@ -1230,6 +1235,105 @@ onUnmounted(() => {
           <span>点击退出登录可清除本地缓存</span>
         </div>
       </div>
+
+      <!-- 接口及接口说明 -->
+      <div class="api-doc-section">
+        <div class="api-doc-header">
+          <h3 class="api-doc-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            接口及接口说明
+          </h3>
+          <span class="api-doc-subtitle">选择平台查看对应接口列表与说明</span>
+        </div>
+
+        <!-- 平台切换 Tab -->
+        <div class="api-doc-tabs">
+          <button
+            v-for="p in platformApis"
+            :key="p.id"
+            class="api-doc-tab"
+            :class="{ active: activeApiDocPlatform === p.id }"
+            @click="activeApiDocPlatform = p.id"
+          >
+            <span class="api-doc-tab-name">{{ p.name }}</span>
+            <span class="api-doc-tab-count">{{ p.apis.length }} 个接口</span>
+          </button>
+        </div>
+
+        <!-- 平台基础信息 -->
+        <div class="api-doc-platform">
+          <div class="api-doc-platform-info">
+            <span class="api-doc-label">服务地址：</span>
+            <code class="api-doc-domain">{{ activeApiDoc.domain }}</code>
+          </div>
+          <div class="api-doc-platform-info">
+            <span class="api-doc-label">Token 存储：</span>
+            <code class="api-doc-token-key">{{ activeApiDoc.loginTokenKey }}</code>
+          </div>
+          <p class="api-doc-desc">{{ activeApiDoc.description }}</p>
+
+          <div class="api-doc-auth">
+            <div class="api-doc-auth-title">认证方式（登录前请求头）</div>
+            <div class="api-doc-header-row" v-for="h in activeApiDoc.baseAuth" :key="h.key">
+              <code class="api-doc-header-key">{{ h.key }}</code>
+              <code class="api-doc-header-value">{{ h.value }}</code>
+              <span class="api-doc-header-desc">{{ h.desc }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 接口列表 -->
+        <div class="api-doc-list">
+          <div class="api-doc-item" v-for="api in activeApiDoc.apis" :key="api.method + api.path">
+            <div class="api-doc-item-head">
+              <span class="api-doc-method" :class="api.method.toLowerCase()">{{ api.method }}</span>
+              <code class="api-doc-path">{{ api.path }}</code>
+              <span class="api-doc-name">{{ api.name }}</span>
+            </div>
+            <p class="api-doc-item-desc">{{ api.desc }}</p>
+
+            <!-- 请求头 -->
+            <template v-if="api.headers && api.headers.length">
+              <div class="api-doc-block">
+                <div class="api-doc-block-title">请求头</div>
+                <div class="api-doc-header-row" v-for="h in api.headers" :key="h.key">
+                  <code class="api-doc-header-key">{{ h.key }}</code>
+                  <code class="api-doc-header-value">{{ h.value }}</code>
+                  <span class="api-doc-header-desc">{{ h.desc }}</span>
+                </div>
+              </div>
+            </template>
+
+            <!-- 参数 -->
+            <template v-if="api.params && api.params.length">
+              <div class="api-doc-block">
+                <div class="api-doc-block-title">参数说明</div>
+                <div class="api-doc-params-table">
+                  <div class="api-doc-params-head">
+                    <span>参数名</span>
+                    <span>必填</span>
+                    <span>说明</span>
+                  </div>
+                  <div class="api-doc-params-row" v-for="p in api.params" :key="p.key">
+                    <code class="api-doc-param-key">{{ p.key }}</code>
+                    <span class="api-doc-param-required" :class="{ yes: p.required }">{{ p.required ? '是' : '否' }}</span>
+                    <span class="api-doc-param-desc">{{ p.desc }}</span>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 返回说明 -->
+            <div class="api-doc-block" v-if="api.response">
+              <div class="api-doc-block-title">返回说明</div>
+              <p class="api-doc-response">{{ api.response }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </GlassCard>
   </div>
 </template>
@@ -1843,5 +1947,293 @@ onUnmounted(() => {
     width: 100%;
     justify-content: center;
   }
+
+  .api-doc-tabs {
+    flex-wrap: wrap;
+  }
+
+  .api-doc-header-row {
+    flex-wrap: wrap;
+  }
+}
+
+/* ============== 接口及接口说明 ============== */
+.api-doc-section {
+  margin-top: 24px;
+  border: 1px solid rgba(22, 93, 255, 0.12);
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(22, 93, 255, 0.03), rgba(255, 255, 255, 0.6));
+  padding: 20px;
+}
+
+.api-doc-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.api-doc-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1F2937;
+  margin: 0;
+}
+
+.api-doc-subtitle {
+  font-size: 12px;
+  color: #94A3B8;
+}
+
+.api-doc-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.api-doc-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border: 1px solid rgba(22, 93, 255, 0.2);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.api-doc-tab:hover {
+  border-color: #165DFF;
+}
+
+.api-doc-tab.active {
+  background: #165DFF;
+  border-color: #165DFF;
+  color: #fff;
+}
+
+.api-doc-tab-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.api-doc-tab-count {
+  font-size: 11px;
+  opacity: 0.8;
+  background: rgba(148, 163, 184, 0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.api-doc-tab.active .api-doc-tab-count {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.api-doc-platform {
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.api-doc-platform-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.api-doc-label {
+  color: #6B7280;
+  white-space: nowrap;
+}
+
+.api-doc-domain,
+.api-doc-token-key {
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: #165DFF;
+  background: rgba(22, 93, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.api-doc-desc {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 8px 0 12px;
+  line-height: 1.6;
+}
+
+.api-doc-auth {
+  border-top: 1px dashed rgba(148, 163, 184, 0.3);
+  padding-top: 12px;
+}
+
+.api-doc-auth-title,
+.api-doc-block-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.api-doc-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.api-doc-header-key {
+  min-width: 130px;
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+  color: #7C3AED;
+  background: rgba(124, 58, 237, 0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.api-doc-header-value {
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+  color: #059669;
+  background: rgba(5, 150, 105, 0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+  word-break: break-all;
+}
+
+.api-doc-header-desc {
+  color: #94A3B8;
+}
+
+.api-doc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.api-doc-item {
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.api-doc-item-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.api-doc-method {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  padding: 3px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.api-doc-method.get {
+  background: #059669;
+}
+
+.api-doc-method.post {
+  background: #165DFF;
+}
+
+.api-doc-path {
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+  font-size: 13px;
+  color: #1F2937;
+  word-break: break-all;
+}
+
+.api-doc-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #165DFF;
+}
+
+.api-doc-item-desc {
+  font-size: 13px;
+  color: #6B7280;
+  margin: 8px 0 12px;
+  line-height: 1.6;
+}
+
+.api-doc-block {
+  border-top: 1px dashed rgba(148, 163, 184, 0.3);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+
+.api-doc-params-table {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.api-doc-params-head,
+.api-doc-params-row {
+  display: grid;
+  grid-template-columns: 140px 50px 1fr;
+  gap: 10px;
+  padding: 6px 12px;
+  align-items: center;
+}
+
+.api-doc-params-head {
+  background: rgba(148, 163, 184, 0.08);
+  font-size: 11px;
+  font-weight: 600;
+  color: #6B7280;
+}
+
+.api-doc-params-row {
+  font-size: 12px;
+  border-top: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.api-doc-param-key {
+  font-family: 'SF Mono', 'Monaco', 'Cascadia Code', monospace;
+  color: #1F2937;
+  word-break: break-all;
+}
+
+.api-doc-param-required {
+  text-align: center;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  width: fit-content;
+  background: rgba(148, 163, 184, 0.15);
+  color: #94A3B8;
+}
+
+.api-doc-param-required.yes {
+  background: rgba(239, 68, 68, 0.1);
+  color: #EF4444;
+}
+
+.api-doc-param-desc {
+  color: #6B7280;
+}
+
+.api-doc-response {
+  font-size: 12px;
+  color: #6B7280;
+  margin: 0;
+  line-height: 1.7;
+  word-break: break-all;
 }
 </style>
