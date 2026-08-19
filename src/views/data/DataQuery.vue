@@ -1,5 +1,6 @@
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import GlassCard from '@/components/GlassCard.vue';
 import { useLogsStore } from '@/stores/logs';
@@ -8,6 +9,7 @@ import { getTenantName, getTenantOptions } from '@/utils/tenant.js';
 import { performLogin, syncGlobalLoginState } from '@/utils/platformLogin.js';
 
 const logsStore = useLogsStore();
+const route = useRoute();
 
 // 接口配置（走 Vite 代理）
 const QUERY_URL = '/api/blade-detonate/blastDeviceFactory/page';
@@ -855,6 +857,11 @@ onMounted(() => {
   loadFilterConfig();
   loadSearchHistory();
   loadBlastSearchHistory();
+  // 支持 URL 参数预填：?deviceCode=DZ600000016（首页 AI 助手本地拆解后跳转）
+  const urlDeviceCode = route.query.deviceCode;
+  if (urlDeviceCode) {
+    searchForm.value.deviceCode = String(urlDeviceCode);
+  }
   if (accessToken.value) {
     // 已登录则自动同时查询设备数据 + 爆破记录
     handleUnifiedSearch();

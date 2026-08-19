@@ -44,6 +44,17 @@ async function handleSend() {
   const cmd = parseQuickCmd(text)
   if (cmd) { router.push(cmd); inputText.value = ''; return }
 
+  // 本地意图拆解：设备/手持机 SN 信息查询（无需 AI 服务，配置 API Key 也不调用）
+  const deviceIntent = parseDeviceQueryIntent(text)
+  if (deviceIntent) {
+    aiReply.value = `🔎 已本地识别为「设备信息查询」，无需 AI 服务：\n\n📟 设备编号：${deviceIntent.deviceCode}\n\n正在跳转「AI起爆数据查询」页面，自动检索该设备数据...`
+    recentTasks.value.unshift({ id: Date.now(), query: text, reply: '本地拆解：设备信息查询 ' + deviceIntent.deviceCode, time: new Date() })
+    if (recentTasks.value.length > 10) recentTasks.value.pop()
+    inputText.value = ''
+    setTimeout(() => router.push({ path: '/data/query', query: { deviceCode: deviceIntent.deviceCode } }), 1000)
+    return
+  }
+
   if (!aiService.getApiKey()) {
     aiReply.value = '⚠️ AI 服务尚未配置。\n\n请前往「系统管理 > 三方账号授权」页面配置 DeepSeek API Key。\n\n💡 或使用右侧「本地智能诊断」，无需 API Key，基于知识库匹配。'
     return
@@ -84,6 +95,18 @@ function parseQuickCmd(text) {
   if (/应用|apk|app/i.test(text)) return '/appstore/shengjing'
   if (/推送|push|下发/i.test(text)) return '/appstore/push'
   if (/云系统/.test(text)) return '/tools/tester'
+  return null
+}
+
+// 本地意图拆解：设备/手持机 SN 信息查询（不依赖 AI 服务 / API Key）
+// 例："查询SN编号为DZ600000016的设备信息" → { deviceCode: 'DZ600000016' }
+function parseDeviceQueryIntent(text) {
+  const hasQueryIntent = /查询|检索|搜索|查找|查一下|看看|查/.test(text)
+  const hasDeviceMark = /设备|手持机|产品|SN|编号|sn|机器/.test(text)
+  const snMatch = text.match(/\bDZ[a-zA-Z0-9-]+\b/i)
+  if (hasQueryIntent && hasDeviceMark && snMatch) {
+    return { deviceCode: snMatch[0].toUpperCase() }
+  }
   return null
 }
 
