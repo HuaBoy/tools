@@ -51,6 +51,13 @@ export default defineConfig(({ mode }) => {
           'Authorization': 'Basic ' + Buffer.from('saber:saber_secret').toString('base64')
         }
       },
+      // 盛景平台数据查询（AI起爆/追溯数据均来自第三方 holyview），必须在 /api 之前匹配
+      '/api/blade-detonate': {
+        target: 'https://mp.holyview.cn:9443',
+        changeOrigin: true,
+        secure: true,
+        ws: false
+      },
       // 主系统后端（go-server），经服务器 Caddy:80 转发到 8080
       '/api': {
         target: apiTarget,

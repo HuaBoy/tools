@@ -10,11 +10,12 @@ export const useChatStore = defineStore('chat', () => {
     }
   ])
 
-  function addMessage(type, content) {
+  function addMessage(type, content, payload = null) {
     messages.value.push({
       id: Date.now(),
       type,
-      content
+      content,
+      payload
     })
   }
 

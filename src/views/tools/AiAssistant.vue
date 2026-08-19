@@ -1,11 +1,117 @@
 <script setup>
 import { ref, nextTick, watch, onMounted, onUnmounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useChatStore } from '@/stores/chat';
 
 const chatStore = useChatStore();
+const router = useRouter();
 const inputMessage = ref('');
 const chatContainer = ref(null);
 const isSending = ref(false);
+
+// ==================== 工具调用：AI起爆数据查询 ====================
+const BLAST_QUERY_URL = '/api/blade-detonate/blastTask/page';
+const BLAST_COLUMNS = [
+  { key: 'tenantName', label: '雷管企业' },
+  { key: 'deptName', label: '使用单位' },
+  { key: 'controllerCode', label: '控制器编号' },
+  { key: 'deviceCode', label: '手持机编号' },
+  { key: 'deviceVersion', label: '手持机版本' },
+  { key: 'detonatorCount', label: '爆破数量' },
+  { key: 'taskName', label: '工程名称' },
+  { key: 'blasterUserName', label: '作业人员' },
+  { key: 'explosionDate', label: '爆破时间' },
+  { key: 'uploadDlTime', label: '上传时间' }
+];
+
+// 解析「查询SN设备信息」意图：识别 DZ 开头的 SN 编号 + 查询关键词
+const parseDeviceQueryIntent = (msg) => {
+  const hasQueryIntent = /查询|查|设备|信息|sn|编号|检索|搜索|记录|数据/.test(msg.toLowerCase());
+  const snMatch = msg.match(/\bDZ\w*\d+\b/i);
+  if (hasQueryIntent && snMatch) {
+    return { deviceCode: snMatch[0].toUpperCase() };
+  }
+  return null;
+};
+
+// 最近7天日期范围（yyyy-MM-dd）
+const getRecentWeekRange = () => {
+  const end = new Date();
+  const start = new Date();
+  start.setDate(end.getDate() - 6);
+  const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { startDate: fmt(start), endDate: fmt(end) };
+};
+
+// 调用 AI起爆数据查询接口
+const queryBlastData = async (deviceCode) => {
+  const token = localStorage.getItem('mp_token');
+  if (!token) {
+    return { error: 'NO_TOKEN' };
+  }
+  const { startDate, endDate } = getRecentWeekRange();
+  const params = new URLSearchParams({
+    startDate,
+    endDate,
+    deviceCode,
+    current: '1',
+    size: '10'
+  });
+  const response = await fetch(`${BLAST_QUERY_URL}?${params.toString()}`, {
+    method: 'GET',
+    headers: {
+      'accept': 'application/json, text/plain, */*',
+      'authorization': 'Basic ' + btoa('saber:saber_secret'),
+      'blade-auth': `bearer ${token}`,
+      'tenant-id': '000000'
+    }
+  });
+  const result = await response.json();
+  if (result.code === 200 && result.data) {
+    return { records: result.data.records || [], total: result.data.total || 0 };
+  }
+  if (result.code === 401) {
+    return { error: 'TOKEN_EXPIRED' };
+  }
+  return { error: result.msg || result.message || '查询失败' };
+};
+
+// 处理设备信息查询（工具调用主逻辑）
+const handleDeviceQuery = async (intent) => {
+  chatStore.addMessage('ai', `正在为您查询设备 ${intent.deviceCode} 的AI起爆数据（最近7天），请稍候...`);
+  const result = await queryBlastData(intent.deviceCode);
+  if (result.error === 'NO_TOKEN') {
+    chatStore.addMessage('ai', '未登录云平台，无法查询AI起爆数据。请先登录后重试。', { type: 'error', hint: 'goto-login' });
+    return;
+  }
+  if (result.error === 'TOKEN_EXPIRED') {
+    chatStore.addMessage('ai', '云平台登录已过期，请重新登录后再查询。', { type: 'error', hint: 'goto-login' });
+    return;
+  }
+  if (result.error) {
+    chatStore.addMessage('ai', `查询失败：${result.error}`, { type: 'error' });
+    return;
+  }
+  if (result.total === 0) {
+    chatStore.addMessage('ai', `设备 ${intent.deviceCode} 最近7天没有AI起爆记录。`, { type: 'empty' });
+    return;
+  }
+  chatStore.addMessage(
+    `已为您查询到设备 ${intent.deviceCode} 的AI起爆数据，共 ${result.total} 条（展示前 ${result.records.length} 条）：`,
+    { type: 'table', columns: BLAST_COLUMNS, records: result.records, total: result.total, deviceCode: intent.deviceCode }
+  );
+};
+
+// 格式化单元格值
+const formatCell = (value) => {
+  if (value === null || value === undefined || value === '') return '-';
+  return value;
+};
+
+// 跳转到 AI起爆数据查询页面（带设备号预填）
+const goToDataQuery = (deviceCode) => {
+  router.push({ path: '/data/query', query: deviceCode ? { deviceCode } : {} });
+};
 
 const aiResponses = [
   '根据您的问题，我查询到相关信息如下：',
@@ -64,8 +170,23 @@ const sendMessage = async () => {
   
   await nextTick();
   scrollToBottom();
-  
-  await new Promise(resolve => setTimeout(resolve, 1500));
+
+  // 1. 工具调用：AI起爆数据查询（查询SN设备信息）
+  const deviceIntent = parseDeviceQueryIntent(message);
+  if (deviceIntent) {
+    try {
+      await handleDeviceQuery(deviceIntent);
+    } catch (e) {
+      chatStore.addMessage('ai', `网络异常：${e.message}`, { type: 'error' });
+    }
+    isSending.value = false;
+    await nextTick();
+    scrollToBottom();
+    return;
+  }
+
+  // 2. 默认：规则回复
+  await new Promise(resolve => setTimeout(resolve, 800));
   const response = getRandomResponse();
   chatStore.addMessage('ai', response);
   isSending.value = false;
@@ -127,6 +248,35 @@ onMounted(() => {
           </div>
           <div class="message-content">
             <p>{{ msg.content }}</p>
+            <!-- 工具调用结果：表格 -->
+            <div v-if="msg.payload && msg.payload.type === 'table'" class="tool-result">
+              <div class="tool-result-header">
+                <span>查询结果：{{ msg.payload.total }} 条记录</span>
+                <button class="goto-btn" @click="goToDataQuery(msg.payload.deviceCode)">
+                  在「AI起爆数据查询」中查看完整数据 →
+                </button>
+              </div>
+              <div class="tool-table-wrapper">
+                <table class="tool-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th v-for="col in msg.payload.columns" :key="col.key">{{ col.label }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(record, idx) in msg.payload.records" :key="idx">
+                      <td>{{ idx + 1 }}</td>
+                      <td v-for="col in msg.payload.columns" :key="col.key">{{ formatCell(record[col.key]) }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <!-- 工具调用结果：错误/空态 + 登录引导 -->
+            <div v-if="msg.payload && msg.payload.hint === 'goto-login'" class="tool-result error">
+              <button class="goto-btn" @click="goToDataQuery()">前往「AI起爆数据查询」登录 →</button>
+            </div>
           </div>
         </div>
         
@@ -152,6 +302,7 @@ onMounted(() => {
           <h3>欢迎使用AI运维智能助手</h3>
           <p>我可以帮助您解决运维相关问题，例如：</p>
           <ul class="example-questions">
+            <li>查询SN编号为DZ600000016的设备信息</li>
             <li>故障代码E001怎么处理？</li>
             <li>如何分析起爆器日志？</li>
             <li>请翻译专业术语</li>
@@ -297,6 +448,83 @@ onMounted(() => {
 @keyframes typing {
   0%, 80%, 100% { opacity: 0.3; }
   40% { opacity: 1; }
+}
+
+/* ==================== 工具调用结果 ==================== */
+.tool-result {
+  margin-top: 12px;
+  border: 1px solid rgba(22, 93, 255, 0.25);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(22, 93, 255, 0.06);
+  
+  &.error {
+    border-color: rgba(245, 63, 63, 0.3);
+    background: rgba(245, 63, 63, 0.06);
+    padding: 10px 14px;
+  }
+}
+
+.tool-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid rgba(22, 93, 255, 0.15);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.goto-btn {
+  background: linear-gradient(135deg, #165DFF 0%, #0F4CD0 100%);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: #FFFFFF;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  
+  &:hover {
+    opacity: 0.85;
+  }
+}
+
+.tool-table-wrapper {
+  overflow-x: auto;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.tool-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: var(--text-primary);
+  
+  th, td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid rgba(22, 93, 255, 0.12);
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  th {
+    background: rgba(22, 93, 255, 0.1);
+    color: var(--text-secondary);
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+  }
+  
+  tbody tr:hover {
+    background: rgba(22, 93, 255, 0.06);
+  }
 }
 
 .welcome-message {
