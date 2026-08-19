@@ -17,6 +17,114 @@ const chatMessages = ref([]) // { role: 'user'|'assistant', content: string, tim
 const chatContainerRef = ref(null)
 const recentTasks = ref([])
 
+// ===== 历史对话列表 =====
+const chatHistory = ref([]) // { id, firstMessage, time }
+const showHistoryPanel = ref(false)
+
+// ===== 内联日期选择器（爆破作业查询） =====
+const showDatePicker = ref(false)
+const datePickerDeviceCode = ref('')
+const datePickerQueryDevice = ref(false)
+const datePickerQueryBlast = ref(false)
+const datePickerOriginalText = ref('')
+const dateRangeStart = ref('')
+const dateRangeEnd = ref('')
+const dateRangePreset = ref('week') // 'today' | 'week' | 'month' | 'threeMonth' | 'year' | 'custom'
+
+function getPresetDateRange(preset) {
+  const now = new Date()
+  const end = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  let start = ''
+  switch (preset) {
+    case 'today':
+      start = end; break
+    case 'week': {
+      const d = new Date(); d.setDate(d.getDate() - 6)
+      start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; break
+    }
+    case 'month': {
+      const d = new Date(); d.setDate(d.getDate() - 29)
+      start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; break
+    }
+    case 'threeMonth': {
+      const d = new Date(); d.setMonth(d.getMonth() - 3)
+      start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; break
+    }
+    case 'year': {
+      const d = new Date(); d.setFullYear(d.getFullYear() - 1)
+      start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; break
+    }
+    default:
+      start = ''
+  }
+  dateRangeStart.value = start
+  dateRangeEnd.value = end
+  dateRangePreset.value = preset
+}
+
+function openDatePicker(deviceCode, queryDevice, queryBlast, originalText) {
+  datePickerDeviceCode.value = deviceCode
+  datePickerQueryDevice.value = queryDevice
+  datePickerQueryBlast.value = queryBlast
+  datePickerOriginalText.value = originalText
+  getPresetDateRange('week')
+  showDatePicker.value = true
+}
+
+function closeDatePicker() {
+  showDatePicker.value = false
+  datePickerDeviceCode.value = ''
+}
+
+function handleDateRangePreset(preset) {
+  dateRangePreset.value = preset
+  if (preset !== 'custom') getPresetDateRange(preset)
+}
+
+function executeBlastWithDateRange() {
+  if (!dateRangeStart.value || !dateRangeEnd.value) return
+  showDatePicker.value = false
+
+  const intent = {
+    deviceCode: datePickerDeviceCode.value,
+    queryDevice: datePickerQueryDevice.value,
+    queryBlast: datePickerQueryBlast.value
+  }
+  const dateInfo = `${dateRangeStart.value} 至 ${dateRangeEnd.value}`
+  const deviceLabel = intent.deviceCode ? `设备 ${intent.deviceCode} ` : ''
+
+  pushMessage('user', `📅 日期范围：${dateInfo}`)
+  pushMessage('assistant', `🔎 正在查询${deviceLabel}在 ${dateInfo} 的爆破作业...`)
+
+  aiThinking.value = true
+  doBlastQuery(intent, dateRangeStart.value, dateRangeEnd.value).finally(() => {
+    aiThinking.value = false
+    showDatePicker.value = false
+  })
+}
+
+async function doBlastQuery(intent, startDate, endDate) {
+  try {
+    let reply = ''
+    if (intent.queryDevice && intent.deviceCode) {
+      const deviceReply = await queryDeviceInfoInChat(intent.deviceCode)
+      reply += deviceReply
+    }
+    if (intent.queryBlast) {
+      if (reply) reply += '\n\n'
+      const blastReply = await queryBlastTaskInChat(intent.deviceCode, startDate, endDate)
+      reply += blastReply
+    }
+    chatMessages.value.pop()
+    pushMessage('assistant', reply)
+    recentTasks.value.unshift({ id: Date.now(), query: datePickerOriginalText.value, reply: reply.slice(0, 120), time: new Date() })
+    if (recentTasks.value.length > 10) recentTasks.value.pop()
+  } catch (e) {
+    chatMessages.value.pop()
+    pushMessage('assistant', '❌ 查询失败：' + (e.message || '请稍后重试'))
+  }
+}
+
 // ===== 聊天记录持久化 =====
 const CHAT_STORAGE_KEY = 'home_chatMessages'
 
@@ -52,9 +160,31 @@ function pushMessage(role, content) {
   chatMessages.value.push({ role, content, time: new Date() })
 }
 
+// 格式化时间
+function formatTime(date) {
+  if (!date) return ''
+  const d = date instanceof Date ? date : new Date(date)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// 记录历史对话：每次对话开始时记录第一句话和时间
+function recordChatHistory(firstMessage) {
+  chatHistory.value.push({
+    id: Date.now(),
+    firstMessage: firstMessage.length > 40 ? firstMessage.slice(0, 40) + '...' : firstMessage,
+    time: new Date()
+  })
+}
+
 function clearChat() {
   chatMessages.value = []
   localStorage.removeItem(CHAT_STORAGE_KEY)
+}
+
+function loadHistoryItem(item) {
+  // 点击历史对话条目，恢复对话（此处简单提示）
+  pushMessage('assistant', `📋 历史对话（${formatTime(item.time)}）：${item.firstMessage}`)
 }
 
 // 快捷提示关键词
@@ -104,8 +234,14 @@ async function handleSend() {
   setTimeout(() => { chatExpanded.value = false }, 600)
 
   // 添加用户消息到聊天记录
+  const isFirstMessage = chatMessages.value.length === 0
   pushMessage('user', text)
   inputText.value = ''
+
+  // 首条消息时记录历史对话
+  if (isFirstMessage) {
+    recordChatHistory(text)
+  }
 
   const cmd = parseQuickCmd(text)
   if (cmd) { pushMessage('assistant', `🔗 已为你跳转到对应功能页面。\n\n如需在对话中直接查询，请输入：查询SN编号为xxx的设备信息`); return }
@@ -113,27 +249,37 @@ async function handleSend() {
   // 本地意图拆解：设备/手持机 SN 信息查询 + 爆破作业查询
   const deviceIntent = parseDeviceQueryIntent(text)
   if (deviceIntent) {
-    aiThinking.value = true
-    pushMessage('assistant', `🔎 已识别为「${deviceIntent.queryDevice && deviceIntent.queryBlast ? '设备信息 + 爆破作业' : deviceIntent.queryBlast ? '爆破作业' : '设备信息'}查询」，正在检索设备 ${deviceIntent.deviceCode} ...`)
-    try {
-      let reply = ''
-      if (deviceIntent.queryDevice) {
-        const deviceReply = await queryDeviceInfoInChat(deviceIntent.deviceCode)
-        reply += deviceReply
+    // 如果只查设备信息（不含爆破作业），直接查
+    if (deviceIntent.queryDevice && !deviceIntent.queryBlast) {
+      aiThinking.value = true
+      pushMessage('assistant', `🔎 正在检索设备 ${deviceIntent.deviceCode} 的设备信息...`)
+      try {
+        const reply = await queryDeviceInfoInChat(deviceIntent.deviceCode)
+        chatMessages.value.pop()
+        pushMessage('assistant', reply)
+        recentTasks.value.unshift({ id: Date.now(), query: text, reply: reply.slice(0, 120), time: new Date() })
+        if (recentTasks.value.length > 10) recentTasks.value.pop()
+      } finally {
+        aiThinking.value = false
       }
-      if (deviceIntent.queryBlast) {
-        if (reply) reply += '\n\n'
-        const blastReply = await queryBlastTaskInChat(deviceIntent.deviceCode)
-        reply += blastReply
-      }
-      // 移除"正在检索"提示，替换为最终结果
-      chatMessages.value.pop()
-      pushMessage('assistant', reply)
-      recentTasks.value.unshift({ id: Date.now(), query: text, reply: reply.slice(0, 120), time: new Date() })
-      if (recentTasks.value.length > 10) recentTasks.value.pop()
-    } finally {
-      aiThinking.value = false
+      return
     }
+
+    // 含爆破作业查询 → 先查设备信息（如果有 SN 且需要查设备），然后弹出日期选择器
+    if (deviceIntent.queryDevice && deviceIntent.deviceCode) {
+      aiThinking.value = true
+      pushMessage('assistant', `🔎 正在检索设备 ${deviceIntent.deviceCode} 的设备信息...`)
+      try {
+        const deviceReply = await queryDeviceInfoInChat(deviceIntent.deviceCode)
+        chatMessages.value.pop()
+        pushMessage('assistant', deviceReply)
+      } finally {
+        aiThinking.value = false
+      }
+    }
+
+    // 弹出内联日期选择器
+    openDatePicker(deviceIntent.deviceCode, deviceIntent.queryDevice, deviceIntent.queryBlast, text)
     return
   }
 
@@ -197,12 +343,20 @@ function parseDeviceQueryIntent(text) {
   const hasDeviceMark = /设备|手持机|产品|SN|编号|sn|机器/.test(text)
   const hasBlastMark = /爆破|作业|任务|工程/.test(text)
   const snMatch = text.match(/\b(DZ[a-zA-Z0-9-]+|\d{8,})\b/i) // 支持 DZ 开头或纯数字 SN（如 869850022329161）
+
+  // 有 SN 的情况（原有逻辑）
   if (hasQueryIntent && (hasDeviceMark || hasBlastMark) && snMatch) {
     const deviceCode = snMatch[0].toUpperCase()
     const queryDevice = hasDeviceMark || /设备/.test(text)
     const queryBlast = hasBlastMark || /爆破|作业|任务/.test(text)
     return { deviceCode, queryDevice: queryDevice || !queryBlast, queryBlast: queryBlast || !queryDevice }
   }
+
+  // 无 SN 但明确查询爆破作业 → 走爆破作业接口（deviceCode 为空）
+  if (hasQueryIntent && hasBlastMark && !snMatch) {
+    return { deviceCode: '', queryDevice: false, queryBlast: true }
+  }
+
   return null
 }
 
@@ -220,7 +374,7 @@ function matchHintIntent(text) {
 // ===== 爆破作业查询 =====
 const BLAST_TASK_URL = '/api/blade-detonate/blastTask/page'
 
-async function queryBlastTaskInChat(deviceCode) {
+async function queryBlastTaskInChat(deviceCode, startDate, endDate) {
   let token = getDeviceQueryToken()
   if (!token) {
     const res = await showLoginDialog('mp')
@@ -232,9 +386,11 @@ async function queryBlastTaskInChat(deviceCode) {
   }
   try {
     const params = new URLSearchParams()
-    params.append('deviceCode', deviceCode)
+    if (deviceCode) params.append('deviceCode', deviceCode)
     params.append('current', 1)
-    params.append('size', 10)
+    params.append('size', 50)
+    if (startDate) params.append('startDate', startDate)
+    if (endDate) params.append('endDate', endDate)
     const response = await fetch(`${BLAST_TASK_URL}?${params.toString()}`, {
       method: 'GET',
       headers: {
@@ -248,7 +404,8 @@ async function queryBlastTaskInChat(deviceCode) {
     if (result.code === 200 && result.data) {
       const records = result.data.records || []
       const total = result.data.total || 0
-      return formatBlastReply(deviceCode, records, total)
+      const dateInfo = startDate && endDate ? `（${startDate} 至 ${endDate}）` : ''
+      return formatBlastReply(deviceCode, records, total, dateInfo)
     }
     if (result.code === 401) {
       localStorage.removeItem('mp_token')
@@ -261,11 +418,12 @@ async function queryBlastTaskInChat(deviceCode) {
   }
 }
 
-function formatBlastReply(deviceCode, records, total) {
+function formatBlastReply(deviceCode, records, total, dateInfo = '') {
   const fmt = (v) => (v === null || v === undefined || v === '') ? '-' : v
-  const header = `💥 设备 ${deviceCode} 的爆破作业记录，共 ${total} 条`
+  const deviceLabel = deviceCode ? `设备 ${deviceCode} ` : '全部设备 '
+  const header = `💥 ${deviceLabel}爆破作业记录${dateInfo}，共 ${total} 条`
   if (!records.length) {
-    return `📭 未查询到设备 ${deviceCode} 的爆破作业记录。\n\n可能原因：\n• 该设备尚未执行过爆破作业\n• 爆破数据尚未上传`
+    return `📭 未查询到${deviceLabel}的爆破作业记录。\n\n可能原因：\n• 该设备尚未执行过爆破作业\n• 爆破数据尚未上传`
   }
   const lines = records.map((r, i) => {
     return `\n──── 作业 ${i + 1} ────\n` +
@@ -444,11 +602,21 @@ onMounted(() => {
             <span>AI 智能助手</span>
             <span class="ch-badge">DeepSeek</span>
             <span v-if="chatMessages.length" class="ch-msg-count">{{ chatMessages.length }} 条消息</span>
+            <span v-if="chatHistory.length" class="ch-history-toggle" @click.stop="showHistoryPanel = !showHistoryPanel" :title="showHistoryPanel ? '收起历史' : '展开历史'">📋</span>
             <span v-if="chatMessages.length" class="ch-clear" @click.stop="clearChat" title="清空对话">🗑</span>
           </div>
 
-          <!-- 快捷提示（空对话时显示） -->
-          <div v-if="!chatMessages.length && !aiThinking" class="ai-hints">
+          <!-- 历史对话列表 -->
+          <div v-if="showHistoryPanel && chatHistory.length && !chatMessages.length" class="chat-history-panel">
+            <div class="chp-title">📋 历史对话</div>
+            <div v-for="item in [...chatHistory].reverse()" :key="item.id" class="chp-item" @click="loadHistoryItem(item)">
+              <span class="chp-msg">{{ item.firstMessage }}</span>
+              <span class="chp-time">{{ formatTime(item.time) }}</span>
+            </div>
+          </div>
+
+          <!-- 快捷提示（空对话且非历史面板时显示） -->
+          <div v-if="!chatMessages.length && !aiThinking && !showHistoryPanel" class="ai-hints">
             <div class="ai-hints-title">💡 试试这样说：</div>
             <div class="ai-hints-grid">
               <div v-for="h in quickHints" :key="h.label" class="ai-hint-chip" @click="applyHint(h)">
@@ -483,6 +651,40 @@ onMounted(() => {
                   <span class="thinking-dots"><span></span><span></span><span></span></span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- 内联日期选择器（爆破作业查询） -->
+          <div v-if="showDatePicker" class="date-picker-panel">
+            <div class="dp-header">
+              <span class="dp-title">📅 选择查询日期范围</span>
+              <span class="dp-device">设备：{{ datePickerDeviceCode }}</span>
+              <span class="dp-close" @click="closeDatePicker" title="关闭">✕</span>
+            </div>
+            <div class="dp-presets">
+              <button class="dp-preset" :class="{ active: dateRangePreset === 'today' }" @click="handleDateRangePreset('today')">今天</button>
+              <button class="dp-preset" :class="{ active: dateRangePreset === 'week' }" @click="handleDateRangePreset('week')">近7天</button>
+              <button class="dp-preset" :class="{ active: dateRangePreset === 'month' }" @click="handleDateRangePreset('month')">近30天</button>
+              <button class="dp-preset" :class="{ active: dateRangePreset === 'threeMonth' }" @click="handleDateRangePreset('threeMonth')">近3个月</button>
+              <button class="dp-preset" :class="{ active: dateRangePreset === 'year' }" @click="handleDateRangePreset('year')">近1年</button>
+              <button class="dp-preset" :class="{ active: dateRangePreset === 'custom' }" @click="handleDateRangePreset('custom')">自定义</button>
+            </div>
+            <div class="dp-dates">
+              <div class="dp-date-group">
+                <label class="dp-label">开始日期</label>
+                <input type="date" v-model="dateRangeStart" class="dp-input" :disabled="dateRangePreset !== 'custom'" />
+              </div>
+              <span class="dp-sep">至</span>
+              <div class="dp-date-group">
+                <label class="dp-label">结束日期</label>
+                <input type="date" v-model="dateRangeEnd" class="dp-input" :disabled="dateRangePreset !== 'custom'" />
+              </div>
+            </div>
+            <div class="dp-actions">
+              <button class="dp-cancel" @click="closeDatePicker">取消</button>
+              <button class="dp-confirm" :disabled="!dateRangeStart || !dateRangeEnd" @click="executeBlastWithDateRange">
+                🔎 查询爆破作业
+              </button>
             </div>
           </div>
 
@@ -752,6 +954,27 @@ onMounted(() => {
 }
 .ch-clear:hover { opacity: 1; }
 
+.ch-history-toggle {
+  font-size: 14px; cursor: pointer; opacity: 0.6; transition: opacity 0.2s; padding: 2px 4px; margin-left: auto; margin-right: 4px;
+}
+.ch-history-toggle:hover { opacity: 1; }
+
+/* ===== 历史对话列表 ===== */
+.chat-history-panel { padding: 6px 0 4px; border-bottom: 1px solid rgba(255,255,255,0.06); max-height: 200px; overflow-y: auto; }
+.chp-title { font-size: 12px; color: #94A3B8; margin-bottom: 6px; font-weight: 600; }
+.chp-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 10px; margin-bottom: 4px;
+  border-radius: 8px; background: rgba(255,255,255,0.03);
+  cursor: pointer; transition: background 0.15s;
+}
+.chp-item:hover { background: rgba(255,255,255,0.08); }
+.chp-msg {
+  flex: 1; font-size: 13px; color: #E2E8F0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 8px;
+}
+.chp-time { font-size: 11px; color: #64748B; white-space: nowrap; }
+
 /* ===== 快捷提示 ===== */
 .ai-hints { padding: 8px 0 4px; }
 .ai-hints-title { font-size: 12px; color: #94A3B8; margin-bottom: 10px; }
@@ -765,6 +988,79 @@ onMounted(() => {
 .ai-hint-chip:hover { background: rgba(22,93,255,0.08); border-color: rgba(22,93,255,0.25); transform: translateY(-1px); }
 .ahc-icon { font-size: 14px; }
 .ahc-label { font-weight: 500; }
+
+/* ===== 内联日期选择器 ===== */
+.date-picker-panel {
+  border: 1px solid rgba(22,93,255,0.15);
+  border-radius: 12px; margin: 8px 0 12px;
+  background: linear-gradient(135deg, rgba(22,93,255,0.03), rgba(0,210,172,0.03));
+  animation: msgIn 0.3s ease-out;
+  overflow: hidden;
+}
+.dp-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; background: rgba(22,93,255,0.06);
+  border-bottom: 1px solid rgba(22,93,255,0.08);
+}
+.dp-title { font-size: 13px; font-weight: 600; color: #1E293B; }
+.dp-device {
+  font-size: 11px; padding: 2px 8px; border-radius: 4px;
+  background: rgba(22,93,255,0.08); color: #165DFF; font-family: monospace;
+}
+.dp-close {
+  margin-left: auto; font-size: 14px; color: #94A3B8;
+  cursor: pointer; padding: 2px 6px; border-radius: 4px; transition: all 0.15s;
+}
+.dp-close:hover { color: #F53F3F; background: rgba(245,63,63,0.08); }
+
+.dp-presets {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 10px 16px;
+}
+.dp-preset {
+  padding: 5px 14px; border-radius: 20px; border: 1px solid #E8ECF1;
+  background: #fff; color: #475569; font-size: 12px; cursor: pointer;
+  transition: all 0.15s; font-weight: 500;
+}
+.dp-preset:hover { border-color: #165DFF; color: #165DFF; background: rgba(22,93,255,0.04); }
+.dp-preset.active {
+  border-color: #165DFF; color: #fff; background: linear-gradient(135deg, #165DFF, #0F4CD0);
+}
+
+.dp-dates {
+  display: flex; align-items: flex-end; gap: 10px;
+  padding: 0 16px 10px;
+}
+.dp-date-group { flex: 1; }
+.dp-label { display: block; font-size: 11px; color: #64748B; margin-bottom: 4px; font-weight: 500; }
+.dp-input {
+  width: 100%; box-sizing: border-box;
+  border: 1px solid #E8ECF1; border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; color: #1E293B;
+  background: #fff; outline: none; transition: border-color 0.2s;
+}
+.dp-input:focus { border-color: #165DFF; }
+.dp-input:disabled { background: #F1F5F9; color: #94A3B8; cursor: not-allowed; }
+.dp-sep { font-size: 13px; color: #94A3B8; padding-bottom: 8px; }
+
+.dp-actions {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 10px 16px; border-top: 1px solid rgba(22,93,255,0.08);
+}
+.dp-cancel {
+  padding: 7px 18px; border-radius: 8px; border: 1px solid #E8ECF1;
+  background: #fff; color: #475569; font-size: 13px; cursor: pointer;
+  transition: all 0.15s;
+}
+.dp-cancel:hover { border-color: #94A3B8; background: #F8FAFC; }
+.dp-confirm {
+  padding: 7px 20px; border-radius: 8px; border: none;
+  background: linear-gradient(135deg, #165DFF, #0F4CD0); color: #fff;
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: all 0.15s;
+}
+.dp-confirm:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(22,93,255,0.3); }
+.dp-confirm:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ===== 聊天记录 ===== */
 .chat-container {
