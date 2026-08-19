@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { aiService } from '@/services/aiService'
 import { useLocalDiagnosis } from '@/composables/useLocalDiagnosis'
+import { getTenantName } from '@/utils/tenant.js'
+import { showLoginDialog } from '@/utils/platformLogin.js'
 
 const router = useRouter()
 
@@ -47,11 +49,17 @@ async function handleSend() {
   // 本地意图拆解：设备/手持机 SN 信息查询（无需 AI 服务，配置 API Key 也不调用）
   const deviceIntent = parseDeviceQueryIntent(text)
   if (deviceIntent) {
-    aiReply.value = `🔎 已本地识别为「设备信息查询」，无需 AI 服务：\n\n📟 设备编号：${deviceIntent.deviceCode}\n\n正在跳转「AI起爆数据查询」页面，自动检索该设备数据...`
-    recentTasks.value.unshift({ id: Date.now(), query: text, reply: '本地拆解：设备信息查询 ' + deviceIntent.deviceCode, time: new Date() })
-    if (recentTasks.value.length > 10) recentTasks.value.pop()
     inputText.value = ''
-    setTimeout(() => router.push({ path: '/data/query', query: { deviceCode: deviceIntent.deviceCode } }), 1000)
+    aiThinking.value = true
+    aiReply.value = `🔎 已本地识别为「设备信息查询」，正在检索设备 ${deviceIntent.deviceCode} ...`
+    try {
+      const reply = await queryDeviceInfoInChat(deviceIntent.deviceCode)
+      aiReply.value = reply
+      recentTasks.value.unshift({ id: Date.now(), query: text, reply: reply.slice(0, 120), time: new Date() })
+      if (recentTasks.value.length > 10) recentTasks.value.pop()
+    } finally {
+      aiThinking.value = false
+    }
     return
   }
 
@@ -108,6 +116,90 @@ function parseDeviceQueryIntent(text) {
     return { deviceCode: snMatch[0].toUpperCase() }
   }
   return null
+}
+
+// ===== 对话式设备信息查询（本地直查接口，无需跳转 / AI 服务） =====
+const DEVICE_QUERY_URL = '/api/blade-detonate/blastDeviceFactory/page'
+
+// 获取已保存的云系统凭证（mp_token 或三方授权 tester_credentials）
+function getDeviceQueryToken() {
+  let token = localStorage.getItem('mp_token')
+  if (token) {
+    const expire = Number(localStorage.getItem('mp_token_expire') || 0)
+    if (!expire || expire > Date.now()) return token
+  }
+  try {
+    const saved = localStorage.getItem('tester_credentials')
+    if (saved) {
+      const data = JSON.parse(saved)
+      if (data.accessToken && data.expireTime > Date.now()) return data.accessToken
+    }
+  } catch (e) { /* ignore */ }
+  return ''
+}
+
+// 查询设备信息，返回对话式回复文本
+async function queryDeviceInfoInChat(deviceCode) {
+  let token = getDeviceQueryToken()
+  if (!token) {
+    // 未登录：尝试弹出登录对话框
+    const res = await showLoginDialog('mp')
+    if (!res || !res.success) {
+      return `⚠️ 查询设备信息需要登录云系统。\n\n请在弹出的登录窗口中完成登录后重试，或前往「三方账号授权」页面配置账号。`
+    }
+    token = getDeviceQueryToken()
+    if (!token) return `⚠️ 登录完成后仍未获取到凭证，请前往「三方账号授权」页面配置后重试。`
+  }
+  try {
+    const params = new URLSearchParams()
+    params.append('deviceCode', deviceCode)
+    params.append('current', 1)
+    params.append('size', 10)
+    const response = await fetch(`${DEVICE_QUERY_URL}?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json, text/plain, */*',
+        'authorization': 'Basic ' + btoa('saber:saber_secret'),
+        'blade-auth': `bearer ${token}`,
+        'tenant-id': '000000'
+      }
+    })
+    const result = await response.json()
+    if (result.code === 200 && result.data) {
+      const records = result.data.records || []
+      const total = result.data.total || 0
+      return formatDeviceReply(deviceCode, records, total)
+    }
+    if (result.code === 401) {
+      localStorage.removeItem('mp_token')
+      localStorage.removeItem('mp_token_expire')
+      return `⚠️ 云系统登录已过期，请重新登录后重试。`
+    }
+    return `❌ 查询失败：${result.msg || result.message || '未知错误'}`
+  } catch (e) {
+    return '❌ 网络请求失败：' + (e.message || '请稍后重试')
+  }
+}
+
+function formatDeviceReply(deviceCode, records, total) {
+  const fmt = (v) => (v === null || v === undefined || v === '') ? '-' : v
+  const header = `✅ 已查到设备 ${deviceCode} 的信息，共 ${total} 条记录`
+  if (!records.length) {
+    return `📭 未查询到设备 ${deviceCode} 的注册信息。\n\n可能原因：\n• 设备编号输入有误\n• 该设备尚未录入系统`
+  }
+  const lines = records.map((r, i) => {
+    const tenantName = getTenantName(r.tenantId)
+    return `\n──── 记录 ${i + 1} ────\n` +
+      `🏭 管厂：${fmt(tenantName && tenantName !== r.tenantId ? `${r.tenantId} ${tenantName}` : r.tenantId)}\n` +
+      `🏢 作业单位：${fmt(r.companyName)}\n` +
+      `🎛 控制器编号：${fmt(r.controllerCode)}\n` +
+      `🔧 控制器版本：${fmt(r.controllerVersion)}\n` +
+      `📟 手持机编号：${fmt(r.deviceCode)}\n` +
+      `📱 手持机版本：${fmt(r.deviceVersion)}\n` +
+      `🔩 手持机类型：${fmt(r.deviceHardware)}\n` +
+      `🧭 版本场景：${fmt(r.deviceScene)}`
+  })
+  return `${header}\n${lines.join('\n')}`
 }
 
 function fillScenario(scenario) {
