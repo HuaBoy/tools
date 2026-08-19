@@ -58,11 +58,16 @@ export const aiService = {
     return { content: data.choices?.[0]?.message?.content || '', usage: data.usage }
   },
 
-  async analyze(context, instruction) {
-    return this.chat([
-      { role: 'system', content: '你是工业起爆系统AI运维专家。用简洁中文回答，给出可执行建议。' },
-      { role: 'user', content: '背景数据：' + String(context) + '\n\n任务：' + instruction }
-    ], { temperature: 0.3 })
+  async analyze(context, instruction, contextMessages = []) {
+    const messages = [
+      { role: 'system', content: '你是工业起爆系统AI运维专家。用简洁中文回答，给出可执行建议。' }
+    ]
+    // 注入最近对话上下文（最多8轮）
+    if (contextMessages.length) {
+      messages.push(...contextMessages.slice(-16))
+    }
+    messages.push({ role: 'user', content: '背景数据：' + String(context) + '\n\n任务：' + instruction })
+    return this.chat(messages, { temperature: 0.3 })
   },
 
   async generateReport(template, dataSet) {

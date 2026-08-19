@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { aiService } from '@/services/aiService'
 import { useLocalDiagnosis } from '@/composables/useLocalDiagnosis'
@@ -12,8 +12,64 @@ const router = useRouter()
 const inputText = ref('')
 const inputRef = ref(null)
 const aiThinking = ref(false)
-const aiReply = ref('')
+const chatExpanded = ref(false)
+const chatMessages = ref([]) // { role: 'user'|'assistant', content: string, time: Date }
+const chatContainerRef = ref(null)
 const recentTasks = ref([])
+
+// ===== 聊天记录持久化 =====
+const CHAT_STORAGE_KEY = 'home_chatMessages'
+
+function saveChatMessages() {
+  try {
+    const data = chatMessages.value.map(m => ({ role: m.role, content: m.content, time: m.time?.toISOString?.() || m.time }))
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(data))
+  } catch { /* ignore */ }
+}
+
+function loadChatMessages() {
+  try {
+    const saved = localStorage.getItem(CHAT_STORAGE_KEY)
+    if (saved) {
+      const data = JSON.parse(saved)
+      chatMessages.value = data.map(m => ({ ...m, time: m.time ? new Date(m.time) : new Date() }))
+    }
+  } catch { /* ignore */ }
+}
+
+async function scrollToBottom() {
+  await nextTick()
+  const el = chatContainerRef.value
+  if (el) el.scrollTop = el.scrollHeight
+}
+
+watch(chatMessages, () => {
+  scrollToBottom()
+  saveChatMessages()
+}, { deep: true })
+
+function pushMessage(role, content) {
+  chatMessages.value.push({ role, content, time: new Date() })
+}
+
+function clearChat() {
+  chatMessages.value = []
+  localStorage.removeItem(CHAT_STORAGE_KEY)
+}
+
+// 快捷提示关键词
+const quickHints = [
+  { label: '设备查询', example: '查询设备SN编号 DZ600000016', icon: '📟' },
+  { label: '爆破作业', example: '查询手持机869850022329161的爆破作业', icon: '💥' },
+  { label: '设备+作业', example: '查询SN编号为869850022329161的设备信息和爆破作业', icon: '📋' },
+  { label: '日志诊断', example: '分析以下日志片段', icon: '🔍' },
+  { label: '翻译', example: '将以下内容翻译为英文', icon: '🌐' }
+]
+
+function applyHint(hint) {
+  inputText.value = hint.example
+  inputRef.value?.focus()
+}
 
 // ===== 本地诊断 =====
 const { isAnalyzing: localThinking, results: localResults, logPatterns, issueType, suggestedTools, diagnose } = useLocalDiagnosis()
@@ -43,18 +99,36 @@ async function handleSend() {
   const text = inputText.value.trim()
   if (!text || aiThinking.value) return
 
-  const cmd = parseQuickCmd(text)
-  if (cmd) { router.push(cmd); inputText.value = ''; return }
+  // 展开动画
+  chatExpanded.value = true
+  setTimeout(() => { chatExpanded.value = false }, 600)
 
-  // 本地意图拆解：设备/手持机 SN 信息查询（无需 AI 服务，配置 API Key 也不调用）
+  // 添加用户消息到聊天记录
+  pushMessage('user', text)
+  inputText.value = ''
+
+  const cmd = parseQuickCmd(text)
+  if (cmd) { pushMessage('assistant', `🔗 已为你跳转到对应功能页面。\n\n如需在对话中直接查询，请输入：查询SN编号为xxx的设备信息`); return }
+
+  // 本地意图拆解：设备/手持机 SN 信息查询 + 爆破作业查询
   const deviceIntent = parseDeviceQueryIntent(text)
   if (deviceIntent) {
-    inputText.value = ''
     aiThinking.value = true
-    aiReply.value = `🔎 已本地识别为「设备信息查询」，正在检索设备 ${deviceIntent.deviceCode} ...`
+    pushMessage('assistant', `🔎 已识别为「${deviceIntent.queryDevice && deviceIntent.queryBlast ? '设备信息 + 爆破作业' : deviceIntent.queryBlast ? '爆破作业' : '设备信息'}查询」，正在检索设备 ${deviceIntent.deviceCode} ...`)
     try {
-      const reply = await queryDeviceInfoInChat(deviceIntent.deviceCode)
-      aiReply.value = reply
+      let reply = ''
+      if (deviceIntent.queryDevice) {
+        const deviceReply = await queryDeviceInfoInChat(deviceIntent.deviceCode)
+        reply += deviceReply
+      }
+      if (deviceIntent.queryBlast) {
+        if (reply) reply += '\n\n'
+        const blastReply = await queryBlastTaskInChat(deviceIntent.deviceCode)
+        reply += blastReply
+      }
+      // 移除"正在检索"提示，替换为最终结果
+      chatMessages.value.pop()
+      pushMessage('assistant', reply)
       recentTasks.value.unshift({ id: Date.now(), query: text, reply: reply.slice(0, 120), time: new Date() })
       if (recentTasks.value.length > 10) recentTasks.value.pop()
     } finally {
@@ -63,21 +137,32 @@ async function handleSend() {
     return
   }
 
+  // 无法识别意图 → 显示关键词提示
+  const hintResult = matchHintIntent(text)
+  if (hintResult) {
+    pushMessage('assistant', hintResult)
+    return
+  }
+
   if (!aiService.getApiKey()) {
-    aiReply.value = '⚠️ AI 服务尚未配置。\n\n请前往「系统管理 > 三方账号授权」页面配置 DeepSeek API Key。\n\n💡 或使用右侧「本地智能诊断」，无需 API Key，基于知识库匹配。'
+    pushMessage('assistant', '⚠️ AI 服务尚未配置。\n\n请前往「系统管理 > 三方账号授权」页面配置 DeepSeek API Key。\n\n💡 或使用右侧「本地智能诊断」，无需 API Key，基于知识库匹配。\n\n如需直接查询设备信息，请输入：\n• 查询设备SN编号 DZ600000016\n• 查询手持机869850022329161的爆破作业\n• 查询SN编号为xxx的设备信息和爆破作业')
     return
   }
 
   aiThinking.value = true
-  aiReply.value = ''
 
   try {
-    const result = await aiService.analyze(text, '理解用户意图，如果是查询类请求，请告诉用户如何使用平台功能。如果是指令类，请给出执行步骤。请用简洁中文回答。')
-    aiReply.value = result.content
-    recentTasks.value.unshift({ id: Date.now(), query: text, reply: result.content, time: new Date() })
+    // 构建上下文：将最近对话历史作为上下文传给 AI
+    const contextMessages = chatMessages.value.slice(-10).map(m => ({
+      role: m.role,
+      content: m.content
+    }))
+    const result = await aiService.analyze(text, '理解用户意图，如果是查询类请求，请告诉用户如何使用平台功能。如果是指令类，请给出执行步骤。请用简洁中文回答。', contextMessages)
+    pushMessage('assistant', result.content)
+    recentTasks.value.unshift({ id: Date.now(), query: text, reply: result.content.slice(0, 120), time: new Date() })
     if (recentTasks.value.length > 10) recentTasks.value.pop()
   } catch (e) {
-    aiReply.value = '❌ AI 调用失败：' + (e.message || '网络异常，请稍后重试')
+    pushMessage('assistant', '❌ AI 调用失败：' + (e.message || '网络异常，请稍后重试'))
   } finally {
     aiThinking.value = false
   }
@@ -106,22 +191,103 @@ function parseQuickCmd(text) {
   return null
 }
 
-// 本地意图拆解：设备/手持机 SN 信息查询（不依赖 AI 服务 / API Key）
-// 例："查询SN编号为DZ600000016的设备信息" → { deviceCode: 'DZ600000016' }
+// 本地意图拆解：设备/手持机 SN 信息查询 + 爆破作业查询（不依赖 AI 服务 / API Key）
 function parseDeviceQueryIntent(text) {
   const hasQueryIntent = /查询|检索|搜索|查找|查一下|看看|查/.test(text)
   const hasDeviceMark = /设备|手持机|产品|SN|编号|sn|机器/.test(text)
-  const snMatch = text.match(/\bDZ[a-zA-Z0-9-]+\b/i)
-  if (hasQueryIntent && hasDeviceMark && snMatch) {
-    return { deviceCode: snMatch[0].toUpperCase() }
+  const hasBlastMark = /爆破|作业|任务|工程/.test(text)
+  const snMatch = text.match(/\b(DZ[a-zA-Z0-9-]+|\d{8,})\b/i) // 支持 DZ 开头或纯数字 SN（如 869850022329161）
+  if (hasQueryIntent && (hasDeviceMark || hasBlastMark) && snMatch) {
+    const deviceCode = snMatch[0].toUpperCase()
+    const queryDevice = hasDeviceMark || /设备/.test(text)
+    const queryBlast = hasBlastMark || /爆破|作业|任务/.test(text)
+    return { deviceCode, queryDevice: queryDevice || !queryBlast, queryBlast: queryBlast || !queryDevice }
   }
   return null
+}
+
+// 意图不匹配时，给出关键词提示（引导用户正确输入）
+function matchHintIntent(text) {
+  const snMatch = text.match(/\b(DZ[a-zA-Z0-9-]+|\d{8,})\b/i)
+  // 包含 SN 但缺少明确查询意图 → 提示
+  if (snMatch && !/查询|检索|搜索|查找|查/.test(text)) {
+    const sn = snMatch[0]
+    return `💡 检测到设备编号「${sn}」，但未明确查询意图。你可以这样输入：\n\n• 查询设备SN编号 ${sn}\n• 查询手持机 ${sn} 的爆破作业\n• 查询SN编号为 ${sn} 的设备信息和爆破作业\n\n点击下方关键词可快速填入 ⬇️`
+  }
+  return null
+}
+
+// ===== 爆破作业查询 =====
+const BLAST_TASK_URL = '/api/blade-detonate/blastTask/page'
+
+async function queryBlastTaskInChat(deviceCode) {
+  let token = getDeviceQueryToken()
+  if (!token) {
+    const res = await showLoginDialog('mp')
+    if (!res || !res.success) {
+      return `⚠️ 查询爆破作业需要登录云系统。\n\n请在弹出的登录窗口中完成登录后重试。`
+    }
+    token = getDeviceQueryToken()
+    if (!token) return `⚠️ 登录完成后仍未获取到凭证，请前往「三方账号授权」页面配置后重试。`
+  }
+  try {
+    const params = new URLSearchParams()
+    params.append('deviceCode', deviceCode)
+    params.append('current', 1)
+    params.append('size', 10)
+    const response = await fetch(`${BLAST_TASK_URL}?${params.toString()}`, {
+      method: 'GET',
+      headers: {
+        'accept': 'application/json, text/plain, */*',
+        'authorization': 'Basic ' + btoa('saber:saber_secret'),
+        'blade-auth': `bearer ${token}`,
+        'tenant-id': '000000'
+      }
+    })
+    const result = await response.json()
+    if (result.code === 200 && result.data) {
+      const records = result.data.records || []
+      const total = result.data.total || 0
+      return formatBlastReply(deviceCode, records, total)
+    }
+    if (result.code === 401) {
+      localStorage.removeItem('mp_token')
+      localStorage.removeItem('mp_token_expire')
+      return `⚠️ 云系统登录已过期，请重新登录后重试。`
+    }
+    return `❌ 爆破作业查询失败：${result.msg || result.message || '未知错误'}`
+  } catch (e) {
+    return '❌ 网络请求失败：' + (e.message || '请稍后重试')
+  }
+}
+
+function formatBlastReply(deviceCode, records, total) {
+  const fmt = (v) => (v === null || v === undefined || v === '') ? '-' : v
+  const header = `💥 设备 ${deviceCode} 的爆破作业记录，共 ${total} 条`
+  if (!records.length) {
+    return `📭 未查询到设备 ${deviceCode} 的爆破作业记录。\n\n可能原因：\n• 该设备尚未执行过爆破作业\n• 爆破数据尚未上传`
+  }
+  const lines = records.map((r, i) => {
+    return `\n──── 作业 ${i + 1} ────\n` +
+      `🏗 工程名称：${fmt(r.taskName)}\n` +
+      `🏢 使用单位：${fmt(r.deptName)}\n` +
+      `🏭 雷管企业：${fmt(r.tenantName)}\n` +
+      `👤 作业人员：${fmt(r.blasterUserName)}\n` +
+      `📞 联系方式：${fmt(r.blasterUserPhone)}\n` +
+      `🎛 控制器编号：${fmt(r.controllerCode)}\n` +
+      `🔧 控制器版本：${fmt(r.controllerVersion)}\n` +
+      `📟 手持机编号：${fmt(r.deviceCode)}\n` +
+      `📱 手持机版本：${fmt(r.deviceVersion)}\n` +
+      `💣 爆破数量：${fmt(r.detonatorCount)}\n` +
+      `📅 爆破时间：${fmt(r.explosionDate)}\n` +
+      `📤 上传时间：${fmt(r.uploadDlTime)}`
+  })
+  return `${header}\n${lines.join('\n')}`
 }
 
 // ===== 对话式设备信息查询（本地直查接口，无需跳转 / AI 服务） =====
 const DEVICE_QUERY_URL = '/api/blade-detonate/blastDeviceFactory/page'
 
-// 获取已保存的云系统凭证（mp_token 或三方授权 tester_credentials）
 function getDeviceQueryToken() {
   let token = localStorage.getItem('mp_token')
   if (token) {
@@ -138,11 +304,9 @@ function getDeviceQueryToken() {
   return ''
 }
 
-// 查询设备信息，返回对话式回复文本
 async function queryDeviceInfoInChat(deviceCode) {
   let token = getDeviceQueryToken()
   if (!token) {
-    // 未登录：尝试弹出登录对话框
     const res = await showLoginDialog('mp')
     if (!res || !res.success) {
       return `⚠️ 查询设备信息需要登录云系统。\n\n请在弹出的登录窗口中完成登录后重试，或前往「三方账号授权」页面配置账号。`
@@ -236,6 +400,8 @@ function handleLocalKeydown(e) {
 // ===== 初始化 =====
 onMounted(() => {
   setTimeout(() => inputRef.value?.focus(), 500)
+  loadChatMessages()
+  scrollToBottom()
   try {
     const saved = localStorage.getItem('ai_tasks')
     if (saved) recentTasks.value = JSON.parse(saved)
@@ -272,18 +438,60 @@ onMounted(() => {
       <!-- 左栏：AI 对话 + 场景入口 -->
       <div class="wb-main">
         <!-- AI 对话 -->
-        <div class="card ai-chat">
+        <div class="card ai-chat" :class="{ 'ai-chat-expanded': chatExpanded, 'ai-chat-loading': aiThinking }">
           <div class="card-head">
             <span class="ch-dot"></span>
             <span>AI 智能助手</span>
             <span class="ch-badge">DeepSeek</span>
+            <span v-if="chatMessages.length" class="ch-msg-count">{{ chatMessages.length }} 条消息</span>
+            <span v-if="chatMessages.length" class="ch-clear" @click.stop="clearChat" title="清空对话">🗑</span>
           </div>
+
+          <!-- 快捷提示（空对话时显示） -->
+          <div v-if="!chatMessages.length && !aiThinking" class="ai-hints">
+            <div class="ai-hints-title">💡 试试这样说：</div>
+            <div class="ai-hints-grid">
+              <div v-for="h in quickHints" :key="h.label" class="ai-hint-chip" @click="applyHint(h)">
+                <span class="ahc-icon">{{ h.icon }}</span>
+                <span class="ahc-label">{{ h.label }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 聊天记录区域 -->
+          <div v-if="chatMessages.length" ref="chatContainerRef" class="chat-container">
+            <div v-for="(msg, idx) in chatMessages" :key="idx" class="chat-message" :class="msg.role">
+              <div class="chat-avatar">
+                <template v-if="msg.role === 'user'">👤</template>
+                <template v-else>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                </template>
+              </div>
+              <div class="chat-bubble">
+                <div class="chat-role">{{ msg.role === 'user' ? '我' : 'AI 助手' }}</div>
+                <div class="chat-text">{{ msg.content }}</div>
+              </div>
+            </div>
+            <!-- 思考中动画 -->
+            <div v-if="aiThinking" class="chat-message assistant">
+              <div class="chat-avatar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              </div>
+              <div class="chat-bubble thinking">
+                <div class="chat-role">AI 助手</div>
+                <div class="chat-text">
+                  <span class="thinking-dots"><span></span><span></span><span></span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div class="ai-input-area">
             <textarea
               ref="inputRef"
               v-model="inputText"
               class="ai-textarea"
-              placeholder="描述你的需求，AI 帮你执行..."
+              placeholder="描述你的需求，如：查询SN编号为869850022329161的设备信息和爆破作业..."
               rows="2"
               @keydown="handleKeydown"
             ></textarea>
@@ -292,16 +500,7 @@ onMounted(() => {
               <template v-else>↵</template>
             </button>
           </div>
-          <p class="ai-hint">Enter 发送 · Shift+Enter 换行 · 输入功能名可快速跳转</p>
-
-          <!-- AI 回复 -->
-          <div v-if="aiReply" class="ai-reply">
-            <div class="ar-head">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              <span>AI 分析结果</span>
-            </div>
-            <div class="ar-body">{{ aiReply }}</div>
-          </div>
+          <p class="ai-hint">Enter 发送 · Shift+Enter 换行 · 对话支持上下文记忆</p>
         </div>
 
         <!-- 场景卡片 -->
@@ -514,7 +713,7 @@ onMounted(() => {
 @keyframes spin { to { transform: rotate(360deg) } }
 .ai-hint { font-size: 11px; color: #94A3B8; margin: 8px 0 0 0; }
 
-/* AI 回复 */
+/* AI 回复（兼容旧样式，已被 chat 替代） */
 .ai-reply {
   margin-top: 16px; border: 1px solid rgba(22,93,255,0.12);
   border-radius: 12px; overflow: hidden;
@@ -527,6 +726,102 @@ onMounted(() => {
 }
 .ar-body {
   padding: 16px; font-size: 13px; line-height: 1.8; color: #475569; white-space: pre-wrap;
+}
+
+/* ===== AI 对话卡片动画 ===== */
+.ai-chat { transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; }
+.ai-chat-expanded {
+  animation: aiPulse 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.ai-chat-loading {
+  box-shadow: 0 0 0 2px rgba(22,93,255,0.15), 0 4px 24px rgba(22,93,255,0.08);
+}
+@keyframes aiPulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.02); box-shadow: 0 8px 32px rgba(22,93,255,0.15); }
+  100% { transform: scale(1); }
+}
+
+/* 消息计数 & 清空按钮 */
+.ch-msg-count {
+  font-size: 10px; padding: 2px 8px; border-radius: 20px;
+  background: rgba(0,180,42,0.08); color: #00B42A; font-weight: 500; margin-left: auto;
+}
+.ch-clear {
+  font-size: 14px; cursor: pointer; opacity: 0.5; transition: opacity 0.2s; padding: 2px 4px;
+}
+.ch-clear:hover { opacity: 1; }
+
+/* ===== 快捷提示 ===== */
+.ai-hints { padding: 8px 0 4px; }
+.ai-hints-title { font-size: 12px; color: #94A3B8; margin-bottom: 10px; }
+.ai-hints-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.ai-hint-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 6px 12px; background: rgba(22,93,255,0.04); border: 1px solid rgba(22,93,255,0.12);
+  border-radius: 20px; font-size: 12px; color: #165DFF; cursor: pointer;
+  transition: all 0.15s;
+}
+.ai-hint-chip:hover { background: rgba(22,93,255,0.08); border-color: rgba(22,93,255,0.25); transform: translateY(-1px); }
+.ahc-icon { font-size: 14px; }
+.ahc-label { font-weight: 500; }
+
+/* ===== 聊天记录 ===== */
+.chat-container {
+  max-height: 480px; overflow-y: auto; padding: 4px 0 8px;
+  scroll-behavior: smooth;
+}
+.chat-container::-webkit-scrollbar { width: 4px; }
+.chat-container::-webkit-scrollbar-track { background: transparent; }
+.chat-container::-webkit-scrollbar-thumb { background: #D0D5DD; border-radius: 4px; }
+
+.chat-message {
+  display: flex; gap: 10px; padding: 8px 0; animation: msgIn 0.3s ease-out;
+}
+.chat-message.user { flex-direction: row-reverse; }
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.chat-message.user .chat-avatar {
+  background: linear-gradient(135deg, #165DFF, #0F4CD0); color: #fff;
+}
+.chat-message.assistant .chat-avatar {
+  background: linear-gradient(135deg, #00D2AC, #008A6E); color: #fff;
+}
+
+.chat-bubble {
+  max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.7;
+}
+.chat-message.user .chat-bubble {
+  background: linear-gradient(135deg, #165DFF, #0F4CD0); color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.chat-message.assistant .chat-bubble {
+  background: #F1F5F9; color: #1E293B; border-bottom-left-radius: 4px;
+}
+.chat-bubble.thinking { min-width: 60px; }
+
+.chat-role { font-size: 11px; font-weight: 600; margin-bottom: 4px; opacity: 0.7; }
+.chat-text { white-space: pre-wrap; word-break: break-word; }
+
+/* 思考中动画 */
+.thinking-dots { display: inline-flex; gap: 4px; padding: 4px 0; }
+.thinking-dots span {
+  width: 6px; height: 6px; border-radius: 50%; background: #165DFF;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes dotBounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-6px); opacity: 1; }
 }
 
 /* ===== 场景卡片 ===== */
