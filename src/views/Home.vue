@@ -1047,31 +1047,11 @@ onMounted(() => {
 }
 
 /* ===== AI 对话 ===== */
-.ai-input-area {
-  display: flex; gap: 10px; align-items: flex-start;
-}
-.ai-textarea {
-  flex: 1; border: 1px solid #E8ECF1; border-radius: 10px;
-  padding: 12px 14px; font-size: 14px; color: #1E293B;
-  resize: none; outline: none; font-family: inherit; line-height: 1.6;
-  background: #F8FAFC; transition: border-color 0.2s;
-}
-.ai-textarea:focus { border-color: #165DFF; background: #fff; }
-.ai-textarea::placeholder { color: #94A3B8; }
-.ai-send {
-  width: 42px; height: 42px; border-radius: 10px; border: none;
-  background: linear-gradient(135deg, #165DFF, #0F4CD0); color: #fff;
-  font-size: 20px; cursor: pointer; flex-shrink: 0; transition: all 0.2s;
-  display: flex; align-items: center; justify-content: center; font-weight: 700;
-}
-.ai-send:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 4px 12px rgba(22,93,255,0.35); }
-.ai-send:disabled { opacity: 0.35; cursor: not-allowed; }
 .spinner {
   width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3);
   border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg) } }
-.ai-hint { font-size: 11px; color: #94A3B8; margin: 8px 0 0 0; }
 
 /* AI 回复（兼容旧样式，已被 chat 替代） */
 .ai-reply {
@@ -1490,7 +1470,8 @@ onMounted(() => {
 .ai-input-wrap:focus-within { border-color: #7B68EE; }
 .ai-textarea {
   flex: 1; border: none; background: transparent; resize: none;
-  font-size: 14px; color: #1D2129; outline: none; line-height: 1.5;
+  font-size: 14px; color: #1D2129; outline: none; line-height: 1.6;
+  font-family: inherit; padding: 4px 8px; min-height: 44px;
 }
 .ai-textarea::placeholder { color: #C9CDD4; }
 .ai-send {
