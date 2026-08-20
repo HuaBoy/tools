@@ -683,18 +683,23 @@ onMounted(() => {
           </svg>
         </div>
         <div>
-          <h1 class="hb-title">AI智能助手工作台</h1>
-          <p class="hb-subtitle">智能对话 · 设备查询 · 爆破作业分析</p>
+          <h1 class="hb-title">全栈赋能工作台</h1>
+          <p class="hb-subtitle">芯片 · 模块 · 设备 · 全链路打通</p>
         </div>
       </div>
       <div class="hb-right">
-        <!-- 移除统计芯片 -->
+        <div v-for="s in stats" :key="s.label" class="stat-chip">
+          <span class="sc-icon">{{ s.icon }}</span>
+          <span class="sc-val">{{ s.value }}</span>
+          <span class="sc-lbl">{{ s.label }}</span>
+        </div>
       </div>
     </header>
 
-    <!-- ===== 主体：AI 对话全宽 ===== -->
+    <!-- ===== 主体双栏 ===== -->
     <div class="wb-body">
-      <div class="wb-main ai-full">
+      <!-- 左栏：AI 对话 + 场景入口 -->
+      <div class="wb-main">
         <!-- AI 对话 -->
         <div class="card ai-chat" :class="{ 'ai-chat-expanded': chatExpanded, 'ai-chat-loading': aiThinking }">
           <div class="card-head">
@@ -868,6 +873,114 @@ onMounted(() => {
             </div>
           </div>
         </div>
+
+        <!-- 场景卡片 -->
+        <div class="card scenario-area">
+          <div class="card-head">
+            <span>🔥 赋能场景</span>
+            <span class="ch-badge" style="background:rgba(0,180,42,0.12);color:#00B42A">全功能</span>
+          </div>
+          <div class="sc-grid">
+            <div v-for="s in roleScenarios" :key="s.id" class="sc-card" @click="fillScenario(s)">
+              <span class="sc-icon">{{ s.icon }}</span>
+              <div class="sc-info">
+                <div class="sc-name">{{ s.title }}</div>
+                <div class="sc-desc">{{ s.desc }}</div>
+              </div>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右栏：本地诊断 + 快捷入口 -->
+      <div class="wb-side">
+        <!-- 本地智能诊断 -->
+        <div class="card local-dx">
+          <div class="card-head">
+            <span>⚡ 本地智能诊断</span>
+            <span class="ch-badge" style="background:rgba(0,210,172,0.12);color:#008A6E">零Token</span>
+          </div>
+          <div class="ld-input-wrap">
+            <input
+              v-model="localQuery"
+              class="local-input"
+              placeholder="输入问题、日志片段或故障描述..."
+              @keydown="handleLocalKeydown"
+            />
+            <button class="ld-btn" :class="{ loading: localThinking }" :disabled="!localQuery.trim() || localThinking" @click="runLocalDiagnosis">
+              {{ localThinking ? '⏳' : '🔎' }}
+            </button>
+          </div>
+          <p class="ld-hint">基于本地知识库 · 不消耗API Token · 毫秒级响应</p>
+
+          <!-- 诊断结果 -->
+          <div v-if="localResult" class="ld-results">
+            <!-- 日志模式匹配 -->
+            <div v-if="localResult.patterns.length" class="ld-section">
+              <div class="ld-sec-title">📌 日志异常匹配</div>
+              <div v-for="(p, i) in localResult.patterns.slice(0, 5)" :key="i" class="ld-pattern" :class="p.severity">
+                <span class="ldp-dot"></span>
+                <span class="ldp-text">{{ p.line?.slice(0, 80) }}</span>
+              </div>
+            </div>
+
+            <!-- 知识库匹配 -->
+            <div v-if="localResult.results.length" class="ld-section">
+              <div class="ld-sec-title">💡 知识库匹配 ({{ localResult.results.length }}条)</div>
+              <div v-for="(r, i) in localResult.results.slice(0, 4)" :key="r.id" class="ld-match" :class="{ best: i === 0 && r.score > 10 }">
+                <div class="ldm-head">
+                  <span class="ldm-sev" :style="{ background: r.severityInfo?.color }">{{ r.severityInfo?.label }}</span>
+                  <span class="ldm-cat">{{ r.categoryInfo?.name }}</span>
+                  <span class="ldm-score">{{ Math.round(r.score) }}分</span>
+                </div>
+                <div class="ldm-q">{{ r.question }}</div>
+              </div>
+            </div>
+
+            <!-- 推荐工具 -->
+            <div v-if="localResult.tools?.length" class="ld-section">
+              <div class="ld-sec-title">🔧 推荐工具</div>
+              <div class="ld-tools">
+                <button v-for="t in localResult.tools" :key="t.path" class="ld-tool-btn" @click="router.push(t.path)">
+                  {{ t.name }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 无匹配 -->
+            <div v-if="!localResult.results.length && !localResult.patterns.length" class="ld-empty">
+              未匹配到相关知识，建议使用 AI 智能助手深入分析
+            </div>
+          </div>
+        </div>
+
+        <!-- 快捷工具 -->
+        <div class="card">
+          <div class="card-head"><span>🔧 快捷工具</span></div>
+          <div class="qt-grid">
+            <div class="qt-item" @click="router.push('/auth/third-party')">🔐 三方授权</div>
+            <div class="qt-item" @click="router.push('/log/decrypt')">🔓 日志解密</div>
+            <div class="qt-item" @click="router.push('/data/query')">📊 数据查询</div>
+            <div class="qt-item" @click="router.push('/tools/translate')">🌐 AI翻译</div>
+            <div class="qt-item" @click="router.push('/tools/converter')">📄 格式转换</div>
+            <div class="qt-item" @click="router.push('/knowledge/rag')">💡 知识库</div>
+            <div class="qt-item" @click="router.push('/appstore/shengjing')">📦 盛景应用</div>
+            <div class="qt-item" @click="router.push('/appstore/push')">📤 推送管理</div>
+            <div class="qt-item" @click="router.push('/tools/assistant')">🤖 运维助手</div>
+            <div class="qt-item" @click="router.push('/trace/analysis')">🔗 批次追溯</div>
+          </div>
+        </div>
+
+        <!-- 硬件能力 -->
+        <div class="card hw-card">
+          <div class="card-head"><span>🔌 硬件直连能力</span></div>
+          <div class="hw-row">
+            <div class="hw-item">💾 芯片管理<span class="hw-tag">BLE</span></div>
+            <div class="hw-item">📡 模块通信<span class="hw-tag">MQTT</span></div>
+            <div class="hw-item">📱 设备OTA<span class="hw-tag">固件</span></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -916,7 +1029,7 @@ onMounted(() => {
 /* ===== 主体布局 ===== */
 .wb-body { display: flex; gap: 18px; align-items: flex-start; }
 .wb-main { flex: 1; min-width: 0; }
-.wb-main.ai-full { max-width: 900px; margin: 0 auto; }
+.wb-side { width: 340px; flex-shrink: 0; }
 
 /* ===== 卡片 ===== */
 .card {
@@ -1272,38 +1385,38 @@ onMounted(() => {
 
 /* ===== 响应式 ===== */
 /* ===== 欢迎屏幕 ===== */
-.ai-welcome { padding: 10px 0; }
-.welcome-hero { text-align: center; padding: 40px 20px 30px; }
-.welcome-icon-wrap { position: relative; display: inline-block; margin-bottom: 20px; }
+.ai-welcome { padding: 6px 0; }
+.welcome-hero { text-align: center; padding: 24px 16px 16px; }
+.welcome-icon-wrap { position: relative; display: inline-block; margin-bottom: 14px; }
 .welcome-icon {
-  width: 80px; height: 80px; border-radius: 20px;
+  width: 64px; height: 64px; border-radius: 16px;
   background: linear-gradient(135deg, #7B68EE, #FF6B35);
   display: flex; align-items: center; justify-content: center;
   color: #fff; position: relative; z-index: 1;
 }
 .welcome-pulse {
   position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px;
-  border-radius: 24px; background: linear-gradient(135deg, rgba(123,104,238,0.2), rgba(255,107,53,0.2));
+  border-radius: 20px; background: linear-gradient(135deg, rgba(123,104,238,0.2), rgba(255,107,53,0.2));
   animation: pulse-glow 3s ease-in-out infinite;
 }
 @keyframes pulse-glow {
   0%, 100% { transform: scale(1); opacity: 0.5; }
   50% { transform: scale(1.05); opacity: 0.8; }
 }
-.welcome-title { font-size: 22px; font-weight: 700; color: #1D2129; margin: 0 0 8px; }
-.welcome-desc { font-size: 14px; color: #86909C; margin: 0; max-width: 500px; margin: 0 auto; line-height: 1.6; }
+.welcome-title { font-size: 18px; font-weight: 700; color: #1D2129; margin: 0 0 6px; }
+.welcome-desc { font-size: 13px; color: #86909C; margin: 0; line-height: 1.5; }
 
 /* ===== 能力分类标签 ===== */
 .capability-tabs {
-  display: flex; gap: 8px; padding: 0 4px; margin-bottom: 20px;
+  display: flex; gap: 6px; padding: 0 4px; margin-bottom: 14px;
   overflow-x: auto; scrollbar-width: none;
 }
 .capability-tabs::-webkit-scrollbar { display: none; }
 .cap-tab {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 16px; border-radius: 20px; cursor: pointer;
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border-radius: 16px; cursor: pointer;
   background: #F2F3F5; border: 2px solid transparent;
-  font-size: 13px; font-weight: 500; color: #4E5969;
+  font-size: 12px; font-weight: 500; color: #4E5969;
   white-space: nowrap; transition: all 0.2s;
 }
 .cap-tab:hover { background: #E5E6EB; }
@@ -1311,16 +1424,16 @@ onMounted(() => {
   background: linear-gradient(135deg, rgba(123,104,238,0.1), rgba(255,107,53,0.1));
   border-color: #7B68EE; color: #7B68EE;
 }
-.cap-tab-icon { font-size: 16px; }
-.cap-tab-name { font-size: 13px; }
+.cap-tab-icon { font-size: 14px; }
+.cap-tab-name { font-size: 12px; }
 
 /* ===== 引导卡片 ===== */
 .guide-cards {
-  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
-  margin-bottom: 24px;
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;
+  margin-bottom: 16px;
 }
 .guide-card {
-  padding: 16px; border-radius: 12px; cursor: pointer;
+  padding: 12px; border-radius: 10px; cursor: pointer;
   background: #fff; border: 1px solid #E5E6EB;
   transition: all 0.2s;
 }
@@ -1328,16 +1441,16 @@ onMounted(() => {
   border-color: #7B68EE; transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(123,104,238,0.1);
 }
-.gc-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.gc-icon { font-size: 20px; }
+.gc-header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.gc-icon { font-size: 16px; }
 .gc-tag {
-  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  font-size: 10px; padding: 1px 6px; border-radius: 8px;
   background: rgba(123,104,238,0.1); color: #7B68EE; font-weight: 600;
 }
-.gc-text { font-size: 14px; font-weight: 600; color: #1D2129; margin-bottom: 6px; }
+.gc-text { font-size: 13px; font-weight: 600; color: #1D2129; margin-bottom: 4px; }
 .gc-example {
-  font-size: 12px; color: #86909C; line-height: 1.5;
-  background: #F7F8FA; padding: 6px 8px; border-radius: 6px;
+  font-size: 11px; color: #86909C; line-height: 1.4;
+  background: #F7F8FA; padding: 4px 6px; border-radius: 4px;
 }
 
 /* ===== 最近查询快捷入口 ===== */
@@ -1402,12 +1515,15 @@ onMounted(() => {
 .aqa-divider { color: #E5E6EB; font-size: 11px; }
 
 /* ===== 响应式 ===== */
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 1100px) {
+  .wb-side { width: 280px; }
+  .guide-cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media screen and (max-width: 900px) {
+  .wb-body { flex-direction: column; }
+  .wb-side { width: 100%; }
   .guide-cards { grid-template-columns: 1fr; }
-  .capability-tabs { gap: 4px; }
-  .cap-tab { padding: 6px 12px; font-size: 12px; }
-  .welcome-hero { padding: 24px 16px 20px; }
-  .welcome-title { font-size: 18px; }
+  .capability-tabs { overflow-x: auto; }
   .hb-right { display: none; }
   .ai-input-footer { flex-direction: column; align-items: flex-start; gap: 6px; }
   .ai-quick-actions { flex-wrap: wrap; }
