@@ -2,6 +2,7 @@
 import { ref, nextTick, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useChatStore } from '@/stores/chat';
+import deviceData from '@/views/knowledge/deviceData.json';
 
 const chatStore = useChatStore();
 const router = useRouter();
@@ -113,6 +114,123 @@ const goToDataQuery = (deviceCode) => {
   router.push({ path: '/data/query', query: deviceCode ? { deviceCode } : {} });
 };
 
+// ==================== 工具调用：设备固件版本查询 ====================
+
+// 解析「固件版本」意图：识别固件/版本/软件 等关键词，可选设备类别名称
+const parseFirmwareQueryIntent = (msg) => {
+  const lower = msg.toLowerCase();
+  const hasFirmwareIntent = /固件|firmware|软件版本|版本信息|软硬件|上位机|下位机|系统版本/.test(lower);
+  const hasQueryIntent = /查询|查|查看|看看|知道|是什么|多少|列出|显示|检索/.test(lower);
+  if (!hasFirmwareIntent && !hasQueryIntent) return null;
+
+  // 提取设备类别关键词（支持从 deviceData.json 的 name 和 id 匹配）
+  const categoryKeywords = [];
+  deviceData.forEach(cat => {
+    categoryKeywords.push({ keyword: cat.name, id: cat.id });
+    categoryKeywords.push({ keyword: cat.id, id: cat.id });
+  });
+
+  let matchedCategory = null;
+  for (const ck of categoryKeywords) {
+    if (lower.includes(ck.keyword.toLowerCase())) {
+      matchedCategory = ck.id;
+      break;
+    }
+  }
+
+  // 关键词简写匹配
+  if (!matchedCategory) {
+    const aliases = {
+      '起爆器': 'qbq', '起爆': 'qbq', '雷管': 'lg',
+      '导爆管': 'dbgsjk', '导爆': 'dbgsjk', '数码': 'dbgsjk',
+      '注码': 'jzzm', '检测': 'jzzm',
+      '数模': 'smmsjzx', '模拟': 'smmsjzx',
+      '测试仪': 'qbkcsy', '检测仪': 'qbkcsy',
+      '中继': 'zjx', '中继器': 'zjx'
+    };
+    for (const [alias, catId] of Object.entries(aliases)) {
+      if (lower.includes(alias)) {
+        matchedCategory = catId;
+        break;
+      }
+    }
+  }
+
+  return { category: matchedCategory };
+};
+
+// 查询设备固件版本（从本地 deviceData.json）
+const queryFirmwareInfo = (categoryFilter) => {
+  let categories = deviceData;
+  if (categoryFilter) {
+    categories = deviceData.filter(cat => cat.id === categoryFilter);
+  }
+
+  const results = [];
+  categories.forEach(cat => {
+    // 收集该类别下所有唯一版本
+    const versionMap = new Map();
+    cat.versions.forEach(v => {
+      const key = `${v.upperSoftVer}|${v.lowerSoftVer}|${v.upperSoftName || '-'}`;
+      if (!versionMap.has(key)) {
+        versionMap.set(key, {
+          upperSoftVer: v.upperSoftVer,
+          lowerSoftVer: v.lowerSoftVer,
+          upperSoftName: v.upperSoftName || '-',
+          count: 0
+        });
+      }
+      versionMap.get(key).count++;
+    });
+
+    results.push({
+      categoryId: cat.id,
+      categoryName: cat.name,
+      color: cat.color,
+      bgColor: cat.bgColor,
+      totalDevices: cat.versions.length,
+      versions: Array.from(versionMap.values())
+    });
+  });
+
+  return results;
+};
+
+// 处理固件版本查询
+const handleFirmwareQuery = async (intent) => {
+  const queryLabel = intent.category ? `「${deviceData.find(c => c.id === intent.category)?.name || intent.category}」` : '全部设备类别';
+  chatStore.addMessage('ai', `正在为您查询 ${queryLabel} 的固件版本信息，请稍候...`);
+
+  // 模拟短暂延迟
+  await new Promise(resolve => setTimeout(resolve, 400));
+
+  const results = queryFirmwareInfo(intent.category);
+
+  if (results.length === 0) {
+    chatStore.addMessage('ai', `未找到匹配的设备类别。如需查看所有设备固件版本，请直接说"查看固件版本信息"。`);
+    return;
+  }
+
+  // 构建结构化回复
+  let totalCategories = results.length;
+  let totalVersions = 0;
+  results.forEach(r => totalVersions += r.versions.length);
+
+  let summary = `已查询到 ${totalCategories} 个设备类别，共 ${totalVersions} 个版本组合：`;
+
+  chatStore.addMessage('ai', summary, {
+    type: 'firmware',
+    categories: results,
+    totalCategories,
+    totalVersions
+  });
+};
+
+// 跳转到设备版本页面
+const goToDeviceVersion = (categoryId) => {
+  router.push({ path: '/knowledge/production-history', query: categoryId ? { category: categoryId } : {} });
+};
+
 const aiResponses = [
   '根据您的问题，我查询到相关信息如下：',
   '这是一个常见问题，建议按照以下步骤处理：',
@@ -185,7 +303,21 @@ const sendMessage = async () => {
     return;
   }
 
-  // 2. 默认：规则回复
+  // 2. 工具调用：设备固件版本查询
+  const firmwareIntent = parseFirmwareQueryIntent(message);
+  if (firmwareIntent) {
+    try {
+      await handleFirmwareQuery(firmwareIntent);
+    } catch (e) {
+      chatStore.addMessage('ai', `固件版本查询异常：${e.message}`, { type: 'error' });
+    }
+    isSending.value = false;
+    await nextTick();
+    scrollToBottom();
+    return;
+  }
+
+  // 3. 默认：规则回复
   await new Promise(resolve => setTimeout(resolve, 800));
   const response = getRandomResponse();
   chatStore.addMessage('ai', response);
@@ -277,6 +409,44 @@ onMounted(() => {
             <div v-if="msg.payload && msg.payload.hint === 'goto-login'" class="tool-result error">
               <button class="goto-btn" @click="goToDataQuery()">前往「AI起爆数据查询」登录 →</button>
             </div>
+            <!-- 工具调用结果：固件版本信息 -->
+            <div v-if="msg.payload && msg.payload.type === 'firmware'" class="tool-result firmware-result">
+              <div class="tool-result-header">
+                <span>查询结果：{{ msg.payload.totalCategories }} 个类别，{{ msg.payload.totalVersions }} 个版本组合</span>
+                <button class="goto-btn" @click="goToDeviceVersion()">
+                  在「生产履历」中查看完整信息 →
+                </button>
+              </div>
+              <div class="firmware-cards">
+                <div 
+                  v-for="cat in msg.payload.categories" 
+                  :key="cat.categoryId" 
+                  class="firmware-card"
+                  :style="{ borderLeftColor: cat.color, background: cat.bgColor + '20' }"
+                >
+                  <div class="firmware-card-header" :style="{ background: cat.bgColor }">
+                    <span class="firmware-card-title">{{ cat.categoryName }}</span>
+                    <span class="firmware-card-count">{{ cat.totalDevices }} 台设备</span>
+                  </div>
+                  <div class="firmware-version-list">
+                    <div v-for="(ver, idx) in cat.versions" :key="idx" class="firmware-version-item">
+                      <div class="version-row">
+                        <span class="version-label">上位机</span>
+                        <span class="version-tag upper" :style="{ background: cat.bgColor, color: cat.color }">{{ ver.upperSoftVer }}</span>
+                      </div>
+                      <div class="version-row">
+                        <span class="version-label">下位机</span>
+                        <span class="version-tag lower">{{ ver.lowerSoftVer }}</span>
+                      </div>
+                      <div class="version-row">
+                        <span class="version-label">数量</span>
+                        <span class="version-count">{{ ver.count }} 台</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         
@@ -303,6 +473,7 @@ onMounted(() => {
           <p>我可以帮助您解决运维相关问题，例如：</p>
           <ul class="example-questions">
             <li>查询SN编号为DZ600000016的设备信息</li>
+            <li>查看起爆器的固件版本信息</li>
             <li>故障代码E001怎么处理？</li>
             <li>如何分析起爆器日志？</li>
             <li>请翻译专业术语</li>
@@ -525,6 +696,98 @@ onMounted(() => {
   tbody tr:hover {
     background: rgba(22, 93, 255, 0.06);
   }
+}
+
+/* ==================== 固件版本信息卡片 ==================== */
+.firmware-result {
+  border-color: rgba(0, 180, 42, 0.3);
+  background: rgba(0, 180, 42, 0.04);
+  
+  .tool-result-header {
+    border-bottom-color: rgba(0, 180, 42, 0.15);
+  }
+}
+
+.firmware-cards {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.firmware-card {
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-left: 4px solid;
+  overflow: hidden;
+}
+
+.firmware-card-header {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.firmware-card-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.firmware-card-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.firmware-version-list {
+  padding: 8px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.firmware-version-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.version-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.version-label {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.version-tag {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  
+  &.upper {
+    border: 1px solid;
+  }
+  
+  &.lower {
+    background: rgba(255, 152, 0, 0.15);
+    color: #E65100;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+  }
+}
+
+.version-count {
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .welcome-message {

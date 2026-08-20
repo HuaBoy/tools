@@ -5,6 +5,7 @@ import { aiService } from '@/services/aiService'
 import { useLocalDiagnosis } from '@/composables/useLocalDiagnosis'
 import { getTenantName } from '@/utils/tenant.js'
 import { showLoginDialog } from '@/utils/platformLogin.js'
+import deviceData from '@/views/knowledge/deviceData.json'
 
 const router = useRouter()
 
@@ -387,6 +388,14 @@ async function handleSend() {
     return
   }
 
+  // 固件版本查询
+  const firmwareHandled = handleFirmwareQuery(text)
+  if (firmwareHandled) {
+    recentTasks.value.unshift({ id: Date.now(), query: text, reply: '固件版本查询', time: new Date() })
+    if (recentTasks.value.length > 10) recentTasks.value.pop()
+    return
+  }
+
   // 无法识别意图 → 显示关键词提示
   const hintResult = matchHintIntent(text)
   if (hintResult) {
@@ -477,6 +486,73 @@ function matchHintIntent(text) {
     return `💡 检测到设备编号「${sn}」，但未明确查询意图。你可以这样输入：\n\n• 查询设备SN编号 ${sn}\n• 查询手持机 ${sn} 的爆破作业\n• 查询SN编号为 ${sn} 的设备信息和爆破作业\n\n点击下方关键词可快速填入 ⬇️`
   }
   return null
+}
+
+// ===== 固件版本查询 =====
+function parseFirmwareQueryIntent(text) {
+  const lower = text.toLowerCase()
+  const hasFirmwareIntent = /固件|firmware|软件版本|版本信息|软硬件|上位机|下位机|系统版本/.test(lower)
+  if (!hasFirmwareIntent) return null
+
+  // 匹配设备类别
+  const aliases = {
+    '起爆器': 'qbq', '起爆': 'qbq', '雷管': 'lg',
+    '导爆管': 'dbgsjk', '导爆': 'dbgsjk', '数码': 'dbgsjk',
+    '注码': 'jzzm', '检测': 'jzzm',
+    '数模': 'smmsjzx', '模拟': 'smmsjzx',
+    '测试仪': 'qbkcsy', '检测仪': 'qbkcsy',
+    '中继': 'zjx', '中继器': 'zjx'
+  }
+  let matchedCategory = null
+  for (const [alias, catId] of Object.entries(aliases)) {
+    if (lower.includes(alias)) { matchedCategory = catId; break }
+  }
+  if (!matchedCategory) {
+    for (const cat of deviceData) {
+      if (lower.includes(cat.name.toLowerCase()) || lower.includes(cat.id.toLowerCase())) {
+        matchedCategory = cat.id; break
+      }
+    }
+  }
+  return { category: matchedCategory }
+}
+
+function buildFirmwareReply(categoryFilter) {
+  let categories = deviceData
+  if (categoryFilter) categories = deviceData.filter(c => c.id === categoryFilter)
+  if (!categories.length) return '未找到匹配的设备类别。'
+
+  let lines = []
+  categories.forEach(cat => {
+    const versionMap = new Map()
+    cat.versions.forEach(v => {
+      const key = `${v.upperSoftVer}|${v.lowerSoftVer}`
+      if (!versionMap.has(key)) versionMap.set(key, { upper: v.upperSoftVer, lower: v.lowerSoftVer, count: 0 })
+      versionMap.get(key).count++
+    })
+    lines.push(`**${cat.name}**（${cat.versions.length} 台设备）`)
+    versionMap.forEach(ver => {
+      lines.push(`• 上位机 \`${ver.upper}\` / 下位机 \`${ver.lower}\` — ${ver.count} 台`)
+    })
+    lines.push('')
+  })
+
+  const totalCategories = categories.length
+  const totalVersions = categories.reduce((s, c) => s + new Set(c.versions.map(v => `${v.upperSoftVer}|${v.lowerSoftVer}`)).size, 0)
+  lines.unshift(`📋 查询结果：${totalCategories} 个类别，${totalVersions} 个版本组合\n`)
+
+  // 末尾加跳转引导
+  lines.push('👉 点击「生产履历」页面可查看完整设备版本管理信息')
+  return lines.join('\n')
+}
+
+function handleFirmwareQuery(text) {
+  const intent = parseFirmwareQueryIntent(text)
+  if (!intent) return false
+  const reply = buildFirmwareReply(intent.category)
+  pushMessage('assistant', reply)
+  generateSuggestions(reply)
+  return true
 }
 
 // ===== 爆破作业查询 =====

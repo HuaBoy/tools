@@ -127,3 +127,5 @@
 {"level":"info","method":"GET","path":"/起爆系统-子机-手持数据采集-原型.html","status":404,"ip":"::1","latency":0,"error":"","time":"2026-08-20T09:05:08+08:00","message":"HTTP Request"}
 {"level":"info","method":"GET","path":"/起爆系统-子机-手持数据采集-原型.html","status":404,"ip":"::1","latency":0,"error":"","time":"2026-08-20T09:24:12+08:00","message":"HTTP Request"}
 {"level":"info","method":"GET","path":"/起爆系统-子机-手持数据采集-原型.html","status":404,"ip":"::1","latency":0,"error":"","time":"2026-08-20T09:24:48+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/起爆系统-子机-手持数据采集-原型.html","status":404,"ip":"::1","latency":0.0178,"error":"","time":"2026-08-20T15:13:05+08:00","message":"HTTP Request"}
+{"level":"info","method":"GET","path":"/起爆系统-子机-手持数据采集-原型.html","status":404,"ip":"::1","latency":0,"error":"","time":"2026-08-20T15:13:05+08:00","message":"HTTP Request"}

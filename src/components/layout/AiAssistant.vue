@@ -2,6 +2,7 @@
 import { ref, nextTick, watch, onMounted, onUnmounted } from 'vue';
 import { useChatStore } from '@/stores/chat';
 import { ElMessage } from 'element-plus';
+import deviceData from '@/views/knowledge/deviceData.json';
 
 const props = defineProps({
   visible: {
@@ -54,6 +55,10 @@ const getRandomResponse = () => {
     {
       keyword: ['查询', 'search', '数据'],
       text: '数据查询功能支持：\n- 设备号模糊搜索\n- 批次号查询\n- 时间范围筛选\n- AI智能检索\n建议在「AI起爆数据查询」页面进行详细查询。'
+    },
+    {
+      keyword: ['固件', 'firmware', '软件版本', '版本信息', '上位机', '下位机'],
+      text: buildFirmwareText(null)
     }
   ];
   const msg = inputMessage.value.toLowerCase();
@@ -64,6 +69,28 @@ const getRandomResponse = () => {
   }
   return aiResponses[Math.floor(Math.random() * aiResponses.length)];
 };
+
+function buildFirmwareText(categoryFilter) {
+  let categories = deviceData;
+  if (categoryFilter) categories = deviceData.filter(c => c.id === categoryFilter);
+  if (!categories.length) return '未找到匹配的设备类别。';
+
+  let lines = ['📋 设备固件版本信息：\n'];
+  categories.forEach(cat => {
+    const versionMap = new Map();
+    cat.versions.forEach(v => {
+      const key = `${v.upperSoftVer}|${v.lowerSoftVer}`;
+      if (!versionMap.has(key)) versionMap.set(key, { upper: v.upperSoftVer, lower: v.lowerSoftVer, count: 0 });
+      versionMap.get(key).count++;
+    });
+    lines.push(`${cat.name}（${cat.versions.length} 台设备）`);
+    versionMap.forEach(ver => {
+      lines.push(`• 上位机 ${ver.upper} / 下位机 ${ver.lower} — ${ver.count} 台`);
+    });
+  });
+  lines.push('\n👉 完整版本管理请前往「生产履历」页面');
+  return lines.join('\n');
+}
 
 const sendMessage = async () => {
   if (!inputMessage.value.trim() || isSending.value) return;
@@ -76,6 +103,37 @@ const sendMessage = async () => {
   await nextTick();
   scrollToBottom();
   
+  // 优先：固件版本查询（本地匹配）
+  const lower = message.toLowerCase();
+  const hasFirmwareKeyword = /固件|firmware|软件版本|版本信息|上位机|下位机|系统版本/.test(lower);
+  if (hasFirmwareKeyword) {
+    let matchedCat = null;
+    const aliases = {
+      '起爆器': 'qbq', '起爆': 'qbq', '雷管': 'lg',
+      '导爆管': 'dbgsjk', '导爆': 'dbgsjk', '数码': 'dbgsjk',
+      '注码': 'jzzm', '检测': 'jzzm',
+      '数模': 'smmsjzx', '模拟': 'smmsjzx',
+      '测试仪': 'qbkcsy', '检测仪': 'qbkcsy',
+      '中继': 'zjx', '中继器': 'zjx'
+    };
+    for (const [alias, catId] of Object.entries(aliases)) {
+      if (lower.includes(alias)) { matchedCat = catId; break; }
+    }
+    if (!matchedCat) {
+      for (const cat of deviceData) {
+        if (lower.includes(cat.name.toLowerCase()) || lower.includes(cat.id.toLowerCase())) {
+          matchedCat = cat.id; break;
+        }
+      }
+    }
+    const response = buildFirmwareText(matchedCat);
+    chatStore.addMessage('ai', response);
+    isSending.value = false;
+    await nextTick();
+    scrollToBottom();
+    return;
+  }
+
   await new Promise(resolve => setTimeout(resolve, 1500));
   const response = getRandomResponse();
   chatStore.addMessage('ai', response);
