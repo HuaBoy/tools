@@ -17,6 +17,60 @@ const chatMessages = ref([]) // { role: 'user'|'assistant', content: string, tim
 const chatContainerRef = ref(null)
 const recentTasks = ref([])
 
+// ===== 欢迎屏幕 & 引导交互 =====
+const activeCapTab = ref('device')
+const inputPlaceholder = ref('描述你的需求，如：查询SN编号为869850022329161的设备信息和爆破作业...')
+const lastSuggestions = ref([])
+
+const capabilityCategories = [
+  { id: 'device', name: '设备查询', icon: '📟' },
+  { id: 'blast', name: '爆破作业', icon: '💥' },
+  { id: 'log', name: '日志分析', icon: '🔍' },
+  { id: 'translate', name: '智能翻译', icon: '🌐' },
+  { id: 'system', name: '系统导航', icon: '🧭' },
+  { id: 'qa', name: '技术问答', icon: '💡' }
+]
+
+const guideMap = {
+  device: [
+    { icon: '📟', text: '查询设备详细信息', example: '查询设备SN编号 DZ600000016', tag: '常用' },
+    { icon: '📋', text: '查询设备绑定关系', example: '查询手持机869850022329161的信息', tag: '' },
+    { icon: '🔄', text: '批量设备状态查询', example: '查询SN编号为 DZ600000016 和 DZ600000017 的设备信息', tag: '批量' },
+    { icon: '🏭', text: '按厂家筛选设备', example: '查询淮南舜泰的设备信息', tag: '' }
+  ],
+  blast: [
+    { icon: '💥', text: '查询爆破作业记录', example: '查询手持机869850022329161的爆破作业', tag: '常用' },
+    { icon: '📅', text: '按日期查询爆破记录', example: '查询最近7天的爆破作业', tag: '' },
+    { icon: '🏗', text: '查询特定工程爆破记录', example: '查询XX工程的爆破作业', tag: '' },
+    { icon: '📊', text: '爆破作业数据统计', example: '统计本月爆破作业次数', tag: '分析' }
+  ],
+  log: [
+    { icon: '🔍', text: '分析日志异常', example: '分析以下日志片段：\n[ERROR] Connection timeout at 2026-08-01', tag: '常用' },
+    { icon: '🐛', text: '诊断故障原因', example: '设备上报数据失败，日志显示ERR_TIMEOUT', tag: '' },
+    { icon: '📈', text: '分析日志趋势', example: '分析以下日志中的错误模式', tag: '' }
+  ],
+  translate: [
+    { icon: '🌐', text: '中英互译', example: '将以下内容翻译为英文：电子雷管起爆系统', tag: '常用' },
+    { icon: '🔧', text: '行业术语翻译', example: '翻译以下爆破行业术语', tag: '专业' },
+    { icon: '📝', text: '文档翻译', example: '翻译以下技术文档内容', tag: '' }
+  ],
+  system: [
+    { icon: '🔐', text: '三方授权管理', example: '打开三方授权页面', tag: '导航', path: '/auth/third-party' },
+    { icon: '🔓', text: '日志解密工具', example: '打开日志解密工具', tag: '导航', path: '/log/decrypt' },
+    { icon: '📊', text: '数据查询工具', example: '打开数据查询页面', tag: '导航', path: '/data/query' },
+    { icon: '📚', text: '知识库管理', example: '打开知识库', tag: '导航', path: '/knowledge/rag' },
+    { icon: '🔗', text: '全链路追溯', example: '打开链路追溯', tag: '导航', path: '/data/trace' }
+  ],
+  qa: [
+    { icon: '❓', text: '设备操作指南', example: '如何对电子雷管进行在线注册？', tag: '' },
+    { icon: '📖', text: '技术原理讲解', example: '解释电子雷管延期起爆的原理', tag: '' },
+    { icon: '⚠️', text: '故障排查指导', example: '手持机无法连接控制器，如何排查？', tag: '常用' },
+    { icon: '🔧', text: '使用技巧', example: '爆破作业数据如何导出？', tag: '' }
+  ]
+}
+
+const activeGuides = computed(() => guideMap[activeCapTab.value] || [])
+
 // ===== 历史对话列表 =====
 const chatHistory = ref([]) // { id, firstMessage, time }
 const showHistoryPanel = ref(false)
@@ -201,6 +255,49 @@ function applyHint(hint) {
   inputRef.value?.focus()
 }
 
+function applyGuide(guide) {
+  if (guide.path) {
+    router.push(guide.path)
+    return
+  }
+  inputText.value = guide.example || guide.text
+  inputRef.value?.focus()
+}
+
+function replayTask(task) {
+  inputText.value = task.query
+  inputRef.value?.focus()
+}
+
+// 根据最后一条AI回复生成引导建议
+function generateSuggestions(reply) {
+  const suggestions = []
+  if (/设备|SN|手持机|控制器/.test(reply)) {
+    if (/爆破/.test(reply)) suggestions.push('查询该设备的详细注册信息')
+    suggestions.push('查询该设备的爆破作业记录')
+    suggestions.push('查看该设备的固件版本信息')
+  }
+  if (/爆破|作业|工程/.test(reply)) {
+    suggestions.push('查询更多时间段的爆破记录')
+    suggestions.push('分析爆破作业数据趋势')
+  }
+  if (/错误|失败|异常|ERROR/.test(reply)) {
+    suggestions.push('分析导致该错误的可能原因')
+    suggestions.push('提供该问题的解决方案')
+    suggestions.push('查看更多相关故障排查指南')
+  }
+  if (/翻译|translate/.test(reply)) {
+    suggestions.push('将翻译结果复制到剪贴板')
+    suggestions.push('翻译更多内容')
+  }
+  // 通用建议
+  if (suggestions.length === 0) {
+    suggestions.push('查询设备SN编号 DZ600000016')
+    suggestions.push('查询爆破作业记录')
+  }
+  lastSuggestions.value = suggestions.slice(0, 4)
+}
+
 // ===== 本地诊断 =====
 const { isAnalyzing: localThinking, results: localResults, logPatterns, issueType, suggestedTools, diagnose } = useLocalDiagnosis()
 const localQuery = ref('')
@@ -228,6 +325,9 @@ const stats = computed(() => [
 async function handleSend() {
   const text = inputText.value.trim()
   if (!text || aiThinking.value) return
+
+  // 清除之前的引导建议
+  lastSuggestions.value = []
 
   // 展开动画
   chatExpanded.value = true
@@ -257,6 +357,7 @@ async function handleSend() {
         const reply = await queryDeviceInfoInChat(deviceIntent.deviceCode)
         chatMessages.value.pop()
         pushMessage('assistant', reply)
+        generateSuggestions(reply)
         recentTasks.value.unshift({ id: Date.now(), query: text, reply: reply.slice(0, 120), time: new Date() })
         if (recentTasks.value.length > 10) recentTasks.value.pop()
       } finally {
@@ -287,11 +388,14 @@ async function handleSend() {
   const hintResult = matchHintIntent(text)
   if (hintResult) {
     pushMessage('assistant', hintResult)
+    generateSuggestions(hintResult)
     return
   }
 
   if (!aiService.getApiKey()) {
-    pushMessage('assistant', '⚠️ AI 服务尚未配置。\n\n请前往「系统管理 > 三方账号授权」页面配置 DeepSeek API Key。\n\n💡 或使用右侧「本地智能诊断」，无需 API Key，基于知识库匹配。\n\n如需直接查询设备信息，请输入：\n• 查询设备SN编号 DZ600000016\n• 查询手持机869850022329161的爆破作业\n• 查询SN编号为xxx的设备信息和爆破作业')
+    const msg = '⚠️ AI 服务尚未配置。\n\n请前往「系统管理 > 三方账号授权」页面配置 DeepSeek API Key。\n\n💡 或使用上方快捷入口查询设备信息、爆破作业。\n\n如需直接查询设备信息，请输入：\n• 查询设备SN编号 DZ600000016\n• 查询手持机869850022329161的爆破作业\n• 查询SN编号为xxx的设备信息和爆破作业'
+    pushMessage('assistant', msg)
+    generateSuggestions(msg)
     return
   }
 
@@ -305,6 +409,7 @@ async function handleSend() {
     }))
     const result = await aiService.analyze(text, '理解用户意图，如果是查询类请求，请告诉用户如何使用平台功能。如果是指令类，请给出执行步骤。请用简洁中文回答。', contextMessages)
     pushMessage('assistant', result.content)
+    generateSuggestions(result.content)
     recentTasks.value.unshift({ id: Date.now(), query: text, reply: result.content.slice(0, 120), time: new Date() })
     if (recentTasks.value.length > 10) recentTasks.value.pop()
   } catch (e) {
@@ -578,23 +683,18 @@ onMounted(() => {
           </svg>
         </div>
         <div>
-          <h1 class="hb-title">全栈赋能工作台</h1>
-          <p class="hb-subtitle">芯片 · 模块 · 设备 · 全链路打通</p>
+          <h1 class="hb-title">AI智能助手工作台</h1>
+          <p class="hb-subtitle">智能对话 · 设备查询 · 爆破作业分析</p>
         </div>
       </div>
       <div class="hb-right">
-        <div v-for="s in stats" :key="s.label" class="stat-chip">
-          <span class="sc-icon">{{ s.icon }}</span>
-          <span class="sc-val">{{ s.value }}</span>
-          <span class="sc-lbl">{{ s.label }}</span>
-        </div>
+        <!-- 移除统计芯片 -->
       </div>
     </header>
 
-    <!-- ===== 主体双栏 ===== -->
+    <!-- ===== 主体：AI 对话全宽 ===== -->
     <div class="wb-body">
-      <!-- 左栏：AI 对话 + 场景入口 -->
-      <div class="wb-main">
+      <div class="wb-main ai-full">
         <!-- AI 对话 -->
         <div class="card ai-chat" :class="{ 'ai-chat-expanded': chatExpanded, 'ai-chat-loading': aiThinking }">
           <div class="card-head">
@@ -615,13 +715,52 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- 快捷提示（空对话且非历史面板时显示） -->
-          <div v-if="!chatMessages.length && !aiThinking && !showHistoryPanel" class="ai-hints">
-            <div class="ai-hints-title">💡 试试这样说：</div>
-            <div class="ai-hints-grid">
-              <div v-for="h in quickHints" :key="h.label" class="ai-hint-chip" @click="applyHint(h)">
-                <span class="ahc-icon">{{ h.icon }}</span>
-                <span class="ahc-label">{{ h.label }}</span>
+          <!-- 欢迎屏幕（空对话且非历史面板时显示） -->
+          <div v-if="!chatMessages.length && !aiThinking && !showHistoryPanel" class="ai-welcome">
+            <div class="welcome-hero">
+              <div class="welcome-icon-wrap">
+                <div class="welcome-icon">
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                </div>
+                <div class="welcome-pulse"></div>
+              </div>
+              <h2 class="welcome-title">你好，我是 AI 智能助手</h2>
+              <p class="welcome-desc">我可以帮你查询设备信息、爆破作业记录、分析日志、解答技术问题。请选择一个场景开始，或直接输入你的需求。</p>
+            </div>
+
+            <!-- 能力分类标签 -->
+            <div class="capability-tabs">
+              <div v-for="cat in capabilityCategories" :key="cat.id"
+                   class="cap-tab" :class="{ active: activeCapTab === cat.id }"
+                   @click="activeCapTab = cat.id">
+                <span class="cap-tab-icon">{{ cat.icon }}</span>
+                <span class="cap-tab-name">{{ cat.name }}</span>
+              </div>
+            </div>
+
+            <!-- 当前分类的引导卡片 -->
+            <div class="guide-cards">
+              <div v-for="g in activeGuides" :key="g.text" class="guide-card" @click="applyGuide(g)">
+                <div class="gc-header">
+                  <span class="gc-icon">{{ g.icon }}</span>
+                  <span class="gc-tag" v-if="g.tag">{{ g.tag }}</span>
+                </div>
+                <div class="gc-text">{{ g.text }}</div>
+                <div class="gc-example" v-if="g.example">示例：{{ g.example }}</div>
+              </div>
+            </div>
+
+            <!-- 最近任务快捷入口 -->
+            <div v-if="recentTasks.length" class="recent-quick">
+              <div class="rq-title">📝 最近查询</div>
+              <div class="rq-list">
+                <div v-for="t in recentTasks.slice(0, 3)" :key="t.id" class="rq-item" @click="replayTask(t)">
+                  <span class="rq-icon">🔄</span>
+                  <span class="rq-text">{{ t.query }}</span>
+                  <span class="rq-time">{{ formatTime(t.time) }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -652,13 +791,23 @@ onMounted(() => {
                 </div>
               </div>
             </div>
+
+            <!-- 回复后的引导建议 -->
+            <div v-if="!aiThinking && chatMessages.length && lastSuggestions.length" class="post-reply-suggestions">
+              <div class="prs-label">💡 你可能还想了解：</div>
+              <div class="prs-chips">
+                <div v-for="(s, i) in lastSuggestions" :key="i" class="prs-chip" @click="applyHint({ example: s })">
+                  {{ s }}
+                </div>
+              </div>
+            </div>
           </div>
 
           <!-- 内联日期选择器（爆破作业查询） -->
           <div v-if="showDatePicker" class="date-picker-panel">
             <div class="dp-header">
               <span class="dp-title">📅 选择查询日期范围</span>
-              <span class="dp-device">设备：{{ datePickerDeviceCode }}</span>
+              <span class="dp-device" v-if="datePickerDeviceCode">设备：{{ datePickerDeviceCode }}</span>
               <span class="dp-close" @click="closeDatePicker" title="关闭">✕</span>
             </div>
             <div class="dp-presets">
@@ -689,138 +838,34 @@ onMounted(() => {
           </div>
 
           <div class="ai-input-area">
-            <textarea
-              ref="inputRef"
-              v-model="inputText"
-              class="ai-textarea"
-              placeholder="描述你的需求，如：查询SN编号为869850022329161的设备信息和爆破作业..."
-              rows="2"
-              @keydown="handleKeydown"
-            ></textarea>
-            <button class="ai-send" :class="{ loading: aiThinking }" :disabled="!inputText.trim() || aiThinking" @click="handleSend">
-              <template v-if="aiThinking"><span class="spinner"></span></template>
-              <template v-else>↵</template>
-            </button>
-          </div>
-          <p class="ai-hint">Enter 发送 · Shift+Enter 换行 · 对话支持上下文记忆</p>
-        </div>
-
-        <!-- 场景卡片 -->
-        <div class="card scenario-area">
-          <div class="card-head">
-            <span>🔥 赋能场景</span>
-            <span class="ch-badge" style="background:rgba(0,180,42,0.12);color:#00B42A">全功能</span>
-          </div>
-          <div class="sc-grid">
-            <div v-for="s in roleScenarios" :key="s.id" class="sc-card" @click="fillScenario(s)">
-              <span class="sc-icon">{{ s.icon }}</span>
-              <div class="sc-info">
-                <div class="sc-name">{{ s.title }}</div>
-                <div class="sc-desc">{{ s.desc }}</div>
-              </div>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            <div class="ai-input-wrap">
+              <textarea
+                ref="inputRef"
+                v-model="inputText"
+                class="ai-textarea"
+                :placeholder="inputPlaceholder"
+                rows="2"
+                @keydown="handleKeydown"
+              ></textarea>
+              <button class="ai-send" :class="{ loading: aiThinking }" :disabled="!inputText.trim() || aiThinking" @click="handleSend">
+                <template v-if="aiThinking"><span class="spinner"></span></template>
+                <template v-else>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </template>
+              </button>
             </div>
-          </div>
-        </div>
-
-        <!-- 最近执行 -->
-        <div v-if="recentTasks.length" class="card">
-          <div class="card-head"><span>📝 最近执行</span></div>
-          <div class="recent-list">
-            <div v-for="t in recentTasks.slice(0, 5)" :key="t.id" class="recent-row">
-              <span class="rq">{{ t.query }}</span>
-              <span class="rp">{{ t.reply?.slice(0, 60) }}...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 右栏：本地诊断 + 快捷入口 -->
-      <div class="wb-side">
-        <!-- 本地智能诊断 -->
-        <div class="card local-dx">
-          <div class="card-head">
-            <span>⚡ 本地智能诊断</span>
-            <span class="ch-badge" style="background:rgba(0,210,172,0.12);color:#008A6E">零Token</span>
-          </div>
-          <div class="ld-input-wrap">
-            <input
-              v-model="localQuery"
-              class="local-input"
-              placeholder="输入问题、日志片段或故障描述..."
-              @keydown="handleLocalKeydown"
-            />
-            <button class="ld-btn" :class="{ loading: localThinking }" :disabled="!localQuery.trim() || localThinking" @click="runLocalDiagnosis">
-              {{ localThinking ? '⏳' : '🔎' }}
-            </button>
-          </div>
-          <p class="ld-hint">基于本地知识库 · 不消耗API Token · 毫秒级响应</p>
-
-          <!-- 诊断结果 -->
-          <div v-if="localResult" class="ld-results">
-            <!-- 日志模式匹配 -->
-            <div v-if="localResult.patterns.length" class="ld-section">
-              <div class="ld-sec-title">📌 日志异常匹配</div>
-              <div v-for="(p, i) in localResult.patterns.slice(0, 5)" :key="i" class="ld-pattern" :class="p.severity">
-                <span class="ldp-dot"></span>
-                <span class="ldp-text">{{ p.line?.slice(0, 80) }}</span>
+            <div class="ai-input-footer">
+              <p class="ai-hint">Enter 发送 · Shift+Enter 换行 · 对话支持上下文记忆</p>
+              <div class="ai-quick-actions">
+                <span class="aqa-item" @click="applyHint({ example: '查询设备SN编号 DZ600000016' })">📟 设备查询</span>
+                <span class="aqa-divider">|</span>
+                <span class="aqa-item" @click="applyHint({ example: '查询手持机869850022329161的爆破作业' })">💥 爆破作业</span>
+                <span class="aqa-divider">|</span>
+                <span class="aqa-item" @click="applyHint({ example: '分析以下日志片段' })">🔍 日志分析</span>
+                <span class="aqa-divider">|</span>
+                <span class="aqa-item" @click="applyHint({ example: '将以下内容翻译为英文' })">🌐 翻译</span>
               </div>
             </div>
-
-            <!-- 知识库匹配 -->
-            <div v-if="localResult.results.length" class="ld-section">
-              <div class="ld-sec-title">💡 知识库匹配 ({{ localResult.results.length }}条)</div>
-              <div v-for="(r, i) in localResult.results.slice(0, 4)" :key="r.id" class="ld-match" :class="{ best: i === 0 && r.score > 10 }">
-                <div class="ldm-head">
-                  <span class="ldm-sev" :style="{ background: r.severityInfo?.color }">{{ r.severityInfo?.label }}</span>
-                  <span class="ldm-cat">{{ r.categoryInfo?.name }}</span>
-                  <span class="ldm-score">{{ Math.round(r.score) }}分</span>
-                </div>
-                <div class="ldm-q">{{ r.question }}</div>
-              </div>
-            </div>
-
-            <!-- 推荐工具 -->
-            <div v-if="localResult.tools?.length" class="ld-section">
-              <div class="ld-sec-title">🔧 推荐工具</div>
-              <div class="ld-tools">
-                <button v-for="t in localResult.tools" :key="t.path" class="ld-tool-btn" @click="router.push(t.path)">
-                  {{ t.name }}
-                </button>
-              </div>
-            </div>
-
-            <!-- 无匹配 -->
-            <div v-if="!localResult.results.length && !localResult.patterns.length" class="ld-empty">
-              未匹配到相关知识，建议使用 AI 智能助手深入分析
-            </div>
-          </div>
-        </div>
-
-        <!-- 快捷工具 -->
-        <div class="card">
-          <div class="card-head"><span>🔧 快捷工具</span></div>
-          <div class="qt-grid">
-            <div class="qt-item" @click="router.push('/auth/third-party')">🔐 三方授权</div>
-            <div class="qt-item" @click="router.push('/log/decrypt')">🔓 日志解密</div>
-            <div class="qt-item" @click="router.push('/data/query')">📊 数据查询</div>
-            <div class="qt-item" @click="router.push('/tools/translate')">🌐 AI翻译</div>
-            <div class="qt-item" @click="router.push('/tools/converter')">📄 格式转换</div>
-            <div class="qt-item" @click="router.push('/knowledge/rag')">💡 知识库</div>
-            <div class="qt-item" @click="router.push('/appstore/shengjing')">📦 盛景应用</div>
-            <div class="qt-item" @click="router.push('/appstore/push')">📤 推送管理</div>
-            <div class="qt-item" @click="router.push('/tools/assistant')">🤖 运维助手</div>
-            <div class="qt-item" @click="router.push('/trace/analysis')">🔗 批次追溯</div>
-          </div>
-        </div>
-
-        <!-- 硬件能力 -->
-        <div class="card hw-card">
-          <div class="card-head"><span>🔌 硬件直连能力</span></div>
-          <div class="hw-row">
-            <div class="hw-item">💾 芯片管理<span class="hw-tag">BLE</span></div>
-            <div class="hw-item">📡 模块通信<span class="hw-tag">MQTT</span></div>
-            <div class="hw-item">📱 设备OTA<span class="hw-tag">固件</span></div>
           </div>
         </div>
       </div>
@@ -868,10 +913,10 @@ onMounted(() => {
 .sc-val { font-size: 15px; font-weight: 700; color: #1E293B; font-family: monospace; }
 .sc-lbl { font-size: 11px; color: #94A3B8; }
 
-/* ===== 双栏 ===== */
+/* ===== 主体布局 ===== */
 .wb-body { display: flex; gap: 18px; align-items: flex-start; }
 .wb-main { flex: 1; min-width: 0; }
-.wb-side { width: 340px; flex-shrink: 0; }
+.wb-main.ai-full { max-width: 900px; margin: 0 auto; }
 
 /* ===== 卡片 ===== */
 .card {
@@ -1226,15 +1271,145 @@ onMounted(() => {
 }
 
 /* ===== 响应式 ===== */
-@media screen and (max-width: 1100px) {
-  .wb-side { width: 280px; }
-  .sc-grid { grid-template-columns: repeat(2, 1fr); }
+/* ===== 欢迎屏幕 ===== */
+.ai-welcome { padding: 10px 0; }
+.welcome-hero { text-align: center; padding: 40px 20px 30px; }
+.welcome-icon-wrap { position: relative; display: inline-block; margin-bottom: 20px; }
+.welcome-icon {
+  width: 80px; height: 80px; border-radius: 20px;
+  background: linear-gradient(135deg, #7B68EE, #FF6B35);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; position: relative; z-index: 1;
 }
-@media screen and (max-width: 900px) {
-  .wb-body { flex-direction: column; }
-  .wb-side { width: 100%; }
-  .sc-grid { grid-template-columns: 1fr; }
-  .role-tabs { overflow-x: auto; }
+.welcome-pulse {
+  position: absolute; top: -6px; left: -6px; right: -6px; bottom: -6px;
+  border-radius: 24px; background: linear-gradient(135deg, rgba(123,104,238,0.2), rgba(255,107,53,0.2));
+  animation: pulse-glow 3s ease-in-out infinite;
+}
+@keyframes pulse-glow {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.05); opacity: 0.8; }
+}
+.welcome-title { font-size: 22px; font-weight: 700; color: #1D2129; margin: 0 0 8px; }
+.welcome-desc { font-size: 14px; color: #86909C; margin: 0; max-width: 500px; margin: 0 auto; line-height: 1.6; }
+
+/* ===== 能力分类标签 ===== */
+.capability-tabs {
+  display: flex; gap: 8px; padding: 0 4px; margin-bottom: 20px;
+  overflow-x: auto; scrollbar-width: none;
+}
+.capability-tabs::-webkit-scrollbar { display: none; }
+.cap-tab {
+  display: flex; align-items: center; gap: 6px;
+  padding: 8px 16px; border-radius: 20px; cursor: pointer;
+  background: #F2F3F5; border: 2px solid transparent;
+  font-size: 13px; font-weight: 500; color: #4E5969;
+  white-space: nowrap; transition: all 0.2s;
+}
+.cap-tab:hover { background: #E5E6EB; }
+.cap-tab.active {
+  background: linear-gradient(135deg, rgba(123,104,238,0.1), rgba(255,107,53,0.1));
+  border-color: #7B68EE; color: #7B68EE;
+}
+.cap-tab-icon { font-size: 16px; }
+.cap-tab-name { font-size: 13px; }
+
+/* ===== 引导卡片 ===== */
+.guide-cards {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+  margin-bottom: 24px;
+}
+.guide-card {
+  padding: 16px; border-radius: 12px; cursor: pointer;
+  background: #fff; border: 1px solid #E5E6EB;
+  transition: all 0.2s;
+}
+.guide-card:hover {
+  border-color: #7B68EE; transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(123,104,238,0.1);
+}
+.gc-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.gc-icon { font-size: 20px; }
+.gc-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  background: rgba(123,104,238,0.1); color: #7B68EE; font-weight: 600;
+}
+.gc-text { font-size: 14px; font-weight: 600; color: #1D2129; margin-bottom: 6px; }
+.gc-example {
+  font-size: 12px; color: #86909C; line-height: 1.5;
+  background: #F7F8FA; padding: 6px 8px; border-radius: 6px;
+}
+
+/* ===== 最近查询快捷入口 ===== */
+.recent-quick { margin-top: 8px; }
+.rq-title { font-size: 13px; font-weight: 600; color: #4E5969; margin-bottom: 8px; }
+.rq-list { display: flex; flex-direction: column; gap: 6px; }
+.rq-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  background: #F7F8FA; transition: background 0.2s;
+}
+.rq-item:hover { background: #E5E6EB; }
+.rq-icon { font-size: 14px; }
+.rq-text { font-size: 13px; color: #1D2129; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rq-time { font-size: 11px; color: #C9CDD4; white-space: nowrap; }
+
+/* ===== 回复后引导建议 ===== */
+.post-reply-suggestions { padding: 8px 0 4px; }
+.prs-label { font-size: 12px; color: #86909C; margin-bottom: 8px; }
+.prs-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.prs-chip {
+  padding: 6px 14px; border-radius: 16px; cursor: pointer;
+  background: #F2F3F5; font-size: 12px; color: #4E5969;
+  border: 1px solid #E5E6EB; transition: all 0.2s;
+}
+.prs-chip:hover {
+  background: rgba(123,104,238,0.08); border-color: #7B68EE; color: #7B68EE;
+}
+
+/* ===== 输入区域增强 ===== */
+.ai-input-area { border-top: 1px solid #F2F3F5; padding: 16px; }
+.ai-input-wrap {
+  display: flex; align-items: flex-end; gap: 12px;
+  background: #F7F8FA; border-radius: 12px; padding: 12px;
+  border: 2px solid #F2F3F5; transition: border-color 0.2s;
+}
+.ai-input-wrap:focus-within { border-color: #7B68EE; }
+.ai-textarea {
+  flex: 1; border: none; background: transparent; resize: none;
+  font-size: 14px; color: #1D2129; outline: none; line-height: 1.5;
+}
+.ai-textarea::placeholder { color: #C9CDD4; }
+.ai-send {
+  width: 40px; height: 40px; border-radius: 10px;
+  background: linear-gradient(135deg, #7B68EE, #5B4BC7);
+  color: #fff; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.2s;
+}
+.ai-send:hover:not(:disabled) { transform: scale(1.05); }
+.ai-send:disabled { opacity: 0.5; cursor: not-allowed; }
+.ai-send.loading { animation: rotate 1s linear infinite; }
+@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.ai-input-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; padding: 0 4px; }
+.ai-hint { font-size: 11px; color: #C9CDD4; margin: 0; }
+.ai-quick-actions { display: flex; align-items: center; gap: 4px; }
+.aqa-item {
+  font-size: 11px; color: #86909C; cursor: pointer;
+  padding: 2px 6px; border-radius: 6px; transition: all 0.2s;
+}
+.aqa-item:hover { background: rgba(123,104,238,0.08); color: #7B68EE; }
+.aqa-divider { color: #E5E6EB; font-size: 11px; }
+
+/* ===== 响应式 ===== */
+@media screen and (max-width: 768px) {
+  .guide-cards { grid-template-columns: 1fr; }
+  .capability-tabs { gap: 4px; }
+  .cap-tab { padding: 6px 12px; font-size: 12px; }
+  .welcome-hero { padding: 24px 16px 20px; }
+  .welcome-title { font-size: 18px; }
   .hb-right { display: none; }
+  .ai-input-footer { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .ai-quick-actions { flex-wrap: wrap; }
 }
 </style>
