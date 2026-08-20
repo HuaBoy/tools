@@ -44,6 +44,81 @@ const deepseekTestResult = ref(null);
 const deepseekIsTesting = ref(false);
 const deepseekShowKey = ref(false);
 
+// Ollama 本地模型配置
+const ollamaUrl = ref(localStorage.getItem('ai_ollama_url') || 'http://localhost:11434');
+const ollamaConnected = ref(false);
+const ollamaIsTesting = ref(false);
+const ollamaTestResult = ref(null);
+const ollamaModelList = ref([]);
+const ollamaSelectedModel = ref(localStorage.getItem('ai_ollama_model') || 'deepseek-r1:7b');
+
+const handleSaveOllamaUrl = () => {
+  let url = ollamaUrl.value.trim().replace(/\/+$/, '');
+  if (!url) url = 'http://localhost:11434';
+  ollamaUrl.value = url;
+  localStorage.setItem('ai_ollama_url', url);
+  localStorage.setItem('ai_ollama_model', ollamaSelectedModel.value);
+};
+
+const handleTestOllama = async () => {
+  ollamaIsTesting.value = true;
+  ollamaTestResult.value = null;
+  handleSaveOllamaUrl();
+  try {
+    // 1. 检查 Ollama 服务是否可达
+    const tagsRes = await fetch(ollamaUrl.value + '/api/tags', { signal: AbortSignal.timeout(5000) });
+    if (!tagsRes.ok) {
+      ollamaTestResult.value = { success: false, message: `Ollama 服务响应异常 (${tagsRes.status})` };
+      return;
+    }
+    const tagsData = await tagsRes.json();
+    ollamaModelList.value = (tagsData.models || []).map(m => m.name);
+    if (!ollamaModelList.value.length) {
+      ollamaTestResult.value = { success: false, message: 'Ollama 已连接，但没有已安装的模型。请先运行: ollama pull deepseek-r1:7b' };
+      return;
+    }
+    // 如果当前选中模型不在列表中，自动选第一个
+    if (!ollamaModelList.value.includes(ollamaSelectedModel.value)) {
+      ollamaSelectedModel.value = ollamaModelList.value[0];
+    }
+    // 2. 用简单请求测试模型推理能力
+    const chatRes = await fetch(ollamaUrl.value + '/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: ollamaSelectedModel.value,
+        messages: [{ role: 'user', content: 'ping' }],
+        max_tokens: 5
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+    if (chatRes.ok) {
+      ollamaConnected.value = true;
+      ollamaTestResult.value = { success: true, message: `连接成功！模型: ${ollamaSelectedModel.value}，共 ${ollamaModelList.value.length} 个模型可用` };
+      ElMessage.success('Ollama 连接成功');
+    } else {
+      ollamaTestResult.value = { success: false, message: `模型调用失败 (${chatRes.status})，请确认模型已下载` };
+    }
+  } catch (e) {
+    ollamaConnected.value = false;
+    ollamaTestResult.value = { success: false, message: `连接失败: ${e.message}。请确认 Ollama 容器已启动` };
+  } finally {
+    ollamaIsTesting.value = false;
+  }
+};
+
+// 页面加载时自动检测 Ollama 连接
+const autoDetectOllama = async () => {
+  try {
+    const res = await fetch(ollamaUrl.value + '/api/tags', { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      const data = await res.json();
+      ollamaModelList.value = (data.models || []).map(m => m.name);
+      ollamaConnected.value = ollamaModelList.value.length > 0;
+    }
+  } catch { /* 静默 */ }
+};
+
 const handleSaveDeepseekKey = () => {
   if (!deepseekApiKey.value.trim()) {
     ElMessage.warning('请输入 DeepSeek API Key');
@@ -624,6 +699,9 @@ onMounted(() => {
     handleGlobalStatusChange(platform);
   });
   void loginStatus;
+
+  // 自动检测本地 Ollama 连接
+  autoDetectOllama();
 });
 
 // 自动登录相关常量
@@ -836,7 +914,79 @@ onUnmounted(() => {
       </div>
 
       <div class="auth-container">
-        <!-- DeepSeek API Key 配置 -->
+        <!-- 本地 Ollama 模型配置（推荐，数据不出内网） -->
+        <div class="auth-card ollama-card recommended">
+          <div class="auth-header">
+            <div class="auth-icon ollama">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+              </svg>
+            </div>
+            <h3>本地 Ollama 模型</h3>
+            <span class="auth-domain">localhost:11434</span>
+            <span class="status-badge recommended-badge">推荐</span>
+            <span v-if="ollamaConnected" class="status-badge logged">已连接</span>
+            <span v-else class="status-badge unlogged">未连接</span>
+          </div>
+
+          <div class="security-tip">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#52c41a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+            <span>本地部署 · 数据不出内网 · 零泄密风险</span>
+          </div>
+
+          <div class="auth-form">
+            <div class="form-group">
+              <label>Ollama 服务地址</label>
+              <div class="input-with-dropdown">
+                <input
+                  v-model="ollamaUrl"
+                  type="text"
+                  class="form-input key-input-monospace"
+                  placeholder="http://localhost:11434"
+                  @blur="handleSaveOllamaUrl"
+                />
+              </div>
+              <p class="key-hint">
+                Docker 中 Ollama 容器地址，默认 http://localhost:11434
+              </p>
+            </div>
+
+            <div v-if="ollamaModelList.length" class="form-group">
+              <label>可用模型</label>
+              <div class="model-list">
+                <span v-for="m in ollamaModelList" :key="m" class="model-tag" :class="{ active: ollamaSelectedModel === m }" @click="ollamaSelectedModel = m; handleSaveOllamaUrl()">
+                  {{ m }}
+                </span>
+              </div>
+            </div>
+
+            <div v-if="ollamaTestResult" class="form-message" :class="ollamaTestResult.success ? 'success' : 'error'">
+              {{ ollamaTestResult.message }}
+            </div>
+
+            <div class="form-actions">
+              <button
+                class="sync-btn"
+                :disabled="ollamaIsTesting"
+                @click="handleTestOllama"
+              >
+                <svg v-if="!ollamaIsTesting" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin">
+                  <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+                </svg>
+                <span>{{ ollamaIsTesting ? '检测中...' : '检测连接' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DeepSeek API Key 配置（云端备选） -->
         <div class="auth-card deepseek-card">
           <div class="auth-header">
             <div class="auth-icon deepseek">
@@ -846,7 +996,7 @@ onUnmounted(() => {
                 <line x1="12" y1="17" x2="12.01" y2="17"/>
               </svg>
             </div>
-            <h3>DeepSeek AI</h3>
+            <h3>DeepSeek AI（云端）</h3>
             <span class="auth-domain">api.deepseek.com</span>
             <span v-if="deepseekApiKey" class="status-badge logged">已配置</span>
             <span v-else class="status-badge unlogged">未配置</span>
@@ -1915,6 +2065,73 @@ onUnmounted(() => {
 .auth-btn.danger-outline:hover {
   background: rgba(239, 68, 68, 0.05);
   border-color: #EF4444;
+}
+
+/* ============== Ollama 本地模型卡片 ============== */
+.auth-icon.ollama {
+  background: rgba(34, 197, 94, 0.1);
+  color: #22C55E;
+}
+
+.ollama-card.recommended {
+  border: 2px solid rgba(34, 197, 94, 0.25);
+  position: relative;
+}
+
+.ollama-card.recommended::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #22C55E, #16A34A);
+  border-radius: 12px 12px 0 0;
+}
+
+.security-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin: 0 16px 12px;
+  background: rgba(34, 197, 94, 0.06);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #16A34A;
+  border: 1px solid rgba(34, 197, 94, 0.15);
+}
+
+.recommended-badge {
+  background: rgba(34, 197, 94, 0.1) !important;
+  color: #16A34A !important;
+}
+
+.model-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.model-tag {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  cursor: pointer;
+  border: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  color: #64748B;
+  transition: all 0.2s;
+}
+
+.model-tag:hover {
+  border-color: #22C55E;
+  color: #22C55E;
+}
+
+.model-tag.active {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: #22C55E;
+  color: #16A34A;
+  font-weight: 500;
 }
 
 /* 响应式 */

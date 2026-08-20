@@ -8,6 +8,9 @@ import { showLoginDialog } from '@/utils/platformLogin.js'
 
 const router = useRouter()
 
+// AI 提供者标签（动态）
+const aiProviderBadge = computed(() => aiService.providerBadge())
+
 // ===== AI 对话 =====
 const inputText = ref('')
 const inputRef = ref(null)
@@ -392,8 +395,8 @@ async function handleSend() {
     return
   }
 
-  if (!aiService.getApiKey()) {
-    const msg = '⚠️ AI 服务尚未配置。\n\n请前往「系统管理 > 三方账号授权」页面配置 DeepSeek API Key。\n\n💡 或使用上方快捷入口查询设备信息、爆破作业。\n\n如需直接查询设备信息，请输入：\n• 查询设备SN编号 DZ600000016\n• 查询手持机869850022329161的爆破作业\n• 查询SN编号为xxx的设备信息和爆破作业'
+  if (aiService.currentProviderKey() !== 'ollama' && !aiService.getApiKey()) {
+    const msg = '⚠️ AI 服务尚未配置。\n\n请前往「系统管理 > 三方账号授权」页面配置 API Key。\n\n💡 推荐使用本地 Ollama 模型（数据不出内网），在设置页面可一键切换。\n\n或使用上方快捷入口查询设备信息、爆破作业。\n\n如需直接查询设备信息，请输入：\n• 查询设备SN编号 DZ600000016\n• 查询手持机869850022329161的爆破作业\n• 查询SN编号为xxx的设备信息和爆破作业'
     pushMessage('assistant', msg)
     generateSuggestions(msg)
     return
@@ -705,7 +708,7 @@ onMounted(() => {
           <div class="card-head">
             <span class="ch-dot"></span>
             <span>AI 智能助手</span>
-            <span class="ch-badge">DeepSeek</span>
+            <span class="ch-badge">{{ aiProviderBadge }}</span>
             <span v-if="chatMessages.length" class="ch-msg-count">{{ chatMessages.length }} 条消息</span>
             <span v-if="chatHistory.length" class="ch-history-toggle" @click.stop="showHistoryPanel = !showHistoryPanel" :title="showHistoryPanel ? '收起历史' : '展开历史'">📋</span>
             <span v-if="chatMessages.length" class="ch-clear" @click.stop="clearChat" title="清空对话">🗑</span>
