@@ -86,10 +86,20 @@ func (h *ChatHandler) Send(c *gin.Context) {
 
 	// 4. 保存用户消息 + 创建会话
 	var convID int64 = req.ConversationID
-	if convID == 0 {
+	isNew := convID == 0
+	if isNew {
 		convID, _ = h.Service.SaveConversation(ctx, username)
 	}
 	_ = h.Service.SaveMessage(ctx, convID, "user", req.Question, nil)
+
+	// 首次消息时，用用户问题前16字更新对话标题
+	if isNew {
+		title := req.Question
+		if len([]rune(title)) > 16 {
+			title = string([]rune(title)[:16]) + "..."
+		}
+		_ = h.Service.UpdateConversationTitle(ctx, convID, title)
+	}
 
 	// 5. 流式输出
 	if req.Stream {
@@ -106,6 +116,7 @@ func (h *ChatHandler) Send(c *gin.Context) {
 			"type":            "meta",
 			"conversation_id": convID,
 			"source_count":    len(sources),
+			"is_new":          isNew,
 		})
 		writeSSE(c, meta)
 
@@ -155,6 +166,7 @@ func (h *ChatHandler) Send(c *gin.Context) {
 		"conversation_id": convID,
 		"answer":          answer,
 		"sources":         sources,
+		"is_new":          isNew,
 	})
 }
 
@@ -167,6 +179,21 @@ func (h *ChatHandler) Conversations(c *gin.Context) {
 		return
 	}
 	response.Success(c, convs)
+}
+
+// Delete 删除会话
+// DELETE /api/v1/knowledge/conversations/:id
+func (h *ChatHandler) Delete(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	if id == 0 {
+		response.BadRequest(c, "无效的会话 ID")
+		return
+	}
+	if err := h.Service.DeleteConversation(c.Request.Context(), id); err != nil {
+		response.ServerError(c, "删除会话失败: "+err.Error())
+		return
+	}
+	response.Success(c, nil)
 }
 
 // History 获取会话消息

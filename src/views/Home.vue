@@ -317,14 +317,6 @@ const roleScenarios = [
   { id: 'translate', icon: '🌐', title: '行业术语翻译', desc: '8语种互译，含爆破行业专业术语库', path: '/tools/translate' }
 ]
 
-// 统计数据
-const stats = computed(() => [
-  { label: '芯片在线', value: '--', icon: '💾' },
-  { label: '模块在线', value: '--', icon: '📡' },
-  { label: '设备在线', value: '--', icon: '🟢' },
-  { label: '知识库', value: '18条', icon: '💡' }
-])
-
 // ===== AI 对话方法 =====
 async function handleSend() {
   const text = inputText.value.trim()
@@ -753,28 +745,6 @@ onMounted(() => {
 
 <template>
   <div class="workbench">
-    <!-- ===== 顶部横幅 ===== -->
-    <header class="wb-header">
-      <div class="hb-left">
-        <div class="hb-icon">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="hb-title">全栈赋能工作台</h1>
-          <p class="hb-subtitle">芯片 · 模块 · 设备 · 全链路打通</p>
-        </div>
-      </div>
-      <div class="hb-right">
-        <div v-for="s in stats" :key="s.label" class="stat-chip">
-          <span class="sc-icon">{{ s.icon }}</span>
-          <span class="sc-val">{{ s.value }}</span>
-          <span class="sc-lbl">{{ s.label }}</span>
-        </div>
-      </div>
-    </header>
-
     <!-- ===== 主体双栏 ===== -->
     <div class="wb-body">
       <!-- 左栏：AI 对话 + 场景入口 -->
@@ -1043,7 +1013,6 @@ onMounted(() => {
             <div class="qt-item" @click="router.push('/data/query')">📊 数据查询</div>
             <div class="qt-item" @click="router.push('/tools/translate')">🌐 AI翻译</div>
             <div class="qt-item" @click="router.push('/tools/converter')">📄 格式转换</div>
-            <div class="qt-item" @click="router.push('/knowledge/rag')">💡 知识库</div>
             <div class="qt-item" @click="router.push('/appstore/shengjing')">📦 盛景应用</div>
             <div class="qt-item" @click="router.push('/appstore/push')">📤 推送管理</div>
             <div class="qt-item" @click="router.push('/tools/assistant')">🤖 运维助手</div>
@@ -1051,15 +1020,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- 硬件能力 -->
-        <div class="card hw-card">
-          <div class="card-head"><span>🔌 硬件直连能力</span></div>
-          <div class="hw-row">
-            <div class="hw-item">💾 芯片管理<span class="hw-tag">BLE</span></div>
-            <div class="hw-item">📡 模块通信<span class="hw-tag">MQTT</span></div>
-            <div class="hw-item">📱 设备OTA<span class="hw-tag">固件</span></div>
-          </div>
-        </div>
+
       </div>
     </div>
   </div>

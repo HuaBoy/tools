@@ -3,7 +3,8 @@ import { ref, reactive, nextTick, onMounted, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import GlassCard from '@/components/GlassCard.vue';
 import { useLogsStore } from '@/stores/logs';
-import { listConversations, getConversationMessages } from '@/api/knowledge';
+import { listConversations, getConversationMessages, deleteConversation } from '@/api/knowledge';
+import { ElMessageBox } from 'element-plus';
 
 const logsStore = useLogsStore();
 
@@ -49,6 +50,33 @@ const newConversation = () => {
   currentConvId.value = 0;
   messages.value = [welcomeMsg];
   inputText.value = '';
+  // 清除左侧列表中的 active 状态
+  // （下次发消息后会自动从后端拿到新标题并刷新列表）
+};
+
+// ===== 删除会话 =====
+const deleteConv = async (conv, e) => {
+  e.stopPropagation(); // 防止触发切换会话
+  try {
+    await ElMessageBox.confirm(
+      `确定删除会话「${conv.title || '新对话'}」？删除后不可恢复。`,
+      '删除确认',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
+    );
+  } catch {
+    return; // 用户取消
+  }
+  try {
+    await deleteConversation(conv.id);
+    ElMessage.success('已删除');
+    // 如果删除的是当前会话，重置到新对话
+    if (currentConvId.value === conv.id) {
+      newConversation();
+    }
+    await loadConversations();
+  } catch (e2) {
+    ElMessage.error('删除失败：' + (e2.message || ''));
+  }
 };
 
 // ===== 发送消息（SSE 流式） =====
@@ -90,6 +118,7 @@ const sendMessage = async () => {
 
     // 当前会话 ID 更新
     let convId = currentConvId.value;
+    let isNewConv = false;
     let fullAnswer = '';
 
     const reader = resp.body.getReader();
@@ -117,6 +146,7 @@ const sendMessage = async () => {
 
         if (data.type === 'meta') {
           convId = data.conversation_id;
+          isNewConv = data.is_new || false;
           currentConvId.value = convId;
         } else if (data.type === 'chunk') {
           aiMsg.content += data.content;
@@ -133,7 +163,8 @@ const sendMessage = async () => {
       }
     }
 
-    if (convId && !conversations.value.some(c => c.id === convId)) {
+    // 只有新对话才刷新列表，编辑历史对话不新增
+    if (isNewConv && convId) {
       await loadConversations();
     }
     logsStore.addLog('对话', 'AI助手', `提问: ${text.slice(0, 30)}`);
@@ -181,7 +212,10 @@ const isOwn = (msg) => msg.role === 'user';
 
 const getConversationTitle = (id) => {
   const conv = conversations.value.find(c => c.id === id);
-  return conv ? conv.title : '新对话';
+  if (!conv) return '新对话';
+  // 显示标题，超过16字加省略号
+  const title = conv.title || '新对话';
+  return title.length > 16 ? title.slice(0, 16) + '...' : title;
 };
 
 onMounted(() => {
@@ -217,8 +251,13 @@ const handleKeydown = (e) => {
             @click="switchConversation(conv.id)"
           >
             <span class="conv-icon">💬</span>
-            <span class="conv-title">{{ conv.title }}</span>
+            <span class="conv-title">{{ conv.title && conv.title.length > 16 ? conv.title.slice(0, 16) + '...' : (conv.title || '新对话') }}</span>
             <span class="conv-msgcount">{{ conv.msg_count }}</span>
+            <button class="conv-delete" @click="deleteConv(conv, $event)" title="删除会话">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+              </svg>
+            </button>
           </div>
           <div v-if="conversations.length === 0" class="conv-empty">
             <p>暂无历史会话</p>
@@ -351,6 +390,29 @@ const handleKeydown = (e) => {
 }
 
 .conv-item:hover { background: var(--bg-input); }
+
+.conv-item:hover .conv-delete { opacity: 1; }
+
+.conv-delete {
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .15s;
+}
+
+.conv-delete:hover {
+  background: rgba(255,77,79,.12);
+  color: #FF4D4F;
+}
 
 .conv-item.active {
   background: rgba(22,93,255,.1);

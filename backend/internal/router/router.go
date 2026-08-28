@@ -1,10 +1,12 @@
 package router
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 	"github.com/tester-platform/backend/internal/config"
 	"github.com/tester-platform/backend/internal/handlers"
 	"github.com/tester-platform/backend/internal/knowledge"
@@ -42,6 +44,19 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager, db *sql.DB) *gin.En
 		config.App.Ollama.ChatModel,
 		config.App.Ollama.StoreDir,
 	)
+
+	// 初始化 LlamaIndex Python RAG 服务客户端
+	ragBaseURL := config.App.Ollama.RAGServiceURL
+	if ragBaseURL == "" {
+		ragBaseURL = "http://127.0.0.1:8001"
+	}
+	ragClient := knowledge.NewRAGClient(ragBaseURL)
+	if err := ragClient.HealthCheck(context.Background()); err != nil {
+		log.Warn().Err(err).Msg("LlamaIndex RAG 服务不可用，将使用 Go 本地 RAG")
+	} else {
+		knowledgeService.SetRAGClient(ragClient)
+		log.Info().Str("url", ragBaseURL).Msg("LlamaIndex RAG 服务已连接")
+	}
 
 	// 初始化 handlers
 	healthHandler := handlers.NewHealthHandler()
@@ -170,6 +185,16 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager, db *sql.DB) *gin.En
 			knowledgeGroup.POST("/documents/upload", knowledgeHandler.Upload)
 			knowledgeGroup.DELETE("/documents/:id", knowledgeHandler.Delete)
 
+			// 文档内容（在线编辑）
+			knowledgeGroup.GET("/documents/:id/content", knowledgeHandler.GetContent)
+			knowledgeGroup.PUT("/documents/:id/content", knowledgeHandler.UpdateContent)
+
+			// 图片上传
+			knowledgeGroup.POST("/images/upload", knowledgeHandler.UploadImage)
+
+			// 文件访问（静态文件服务）
+			knowledgeGroup.GET("/files/:id", knowledgeHandler.ServeFile)
+
 			// 搜索
 			knowledgeGroup.GET("/search", knowledgeHandler.Search)
 			knowledgeGroup.POST("/search", knowledgeHandler.Search)
@@ -185,6 +210,7 @@ func Setup(client *supabase.Client, jwtManager *jwt.Manager, db *sql.DB) *gin.En
 			// 会话管理
 			knowledgeGroup.GET("/conversations", chatHandler.Conversations)
 			knowledgeGroup.GET("/conversations/:id/messages", chatHandler.History)
+			knowledgeGroup.DELETE("/conversations/:id", chatHandler.Delete)
 		}
 	}
 	}

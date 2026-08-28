@@ -5,20 +5,24 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/tester-platform/backend/internal/ollama"
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 // Service 知识库服务
 type Service struct {
-	DB       *sql.DB
-	Ollama   *ollama.Client
+	DB         *sql.DB
+	Ollama     *ollama.Client
 	EmbedModel string
 	ChatModel  string
 	StoreDir   string
+	RAG        *RAGClient // LlamaIndex Python RAG 服务
 }
 
 // NewService 创建知识库服务
@@ -30,6 +34,11 @@ func NewService(db *sql.DB, client *ollama.Client, embedModel, chatModel, storeD
 		ChatModel:  chatModel,
 		StoreDir:   storeDir,
 	}
+}
+
+// SetRAGClient 设置 LlamaIndex RAG 客户端
+func (s *Service) SetRAGClient(client *RAGClient) {
+	s.RAG = client
 }
 
 // Document 文档记录
@@ -45,6 +54,7 @@ type Document struct {
 	ChunkCount  int       `json:"chunk_count"`
 	CreatedBy   string    `json:"created_by"`
 	CreatedAt   time.Time `json:"created_at"`
+	StoragePath string    `json:"storage_path,omitempty"`
 }
 
 // FAQ 问题库条目
@@ -97,7 +107,21 @@ func (s *Service) SaveDocument(ctx context.Context, doc *Document, content strin
 	}
 	doc.CreatedAt = createdAt
 
-	// 2. 分块
+	// 2. 调用 LlamaIndex Python 服务：分块 + 向量化 + 入库
+	if s.RAG != nil {
+		chunkCount, err := s.RAG.IndexDocument(ctx, docID, content)
+		if err != nil {
+			// RAG 失败时降级到 Go 本地分块 + 向量化，不阻断上传
+			fmt.Printf("[WARN] LlamaIndex 索引失败，降级到本地向量化: %v\n", err)
+		} else {
+			doc.ID = docID
+			doc.Status = "ready"
+			doc.ChunkCount = chunkCount
+			return nil
+		}
+	}
+
+	// 3. 回退：使用 Go 原有分块 + 向量化
 	chunks := ChunkText(content, DefaultChunkOptions())
 	if len(chunks) == 0 {
 		_, _ = s.DB.ExecContext(ctx,
@@ -105,7 +129,6 @@ func (s *Service) SaveDocument(ctx context.Context, doc *Document, content strin
 		return fmt.Errorf("文档内容为空，无法分块")
 	}
 
-	// 3. 逐块向量化并入库
 	for i, chunk := range chunks {
 		vec, err := s.Ollama.Embedding(ctx, s.EmbedModel, chunk)
 		if err != nil {
@@ -125,7 +148,6 @@ func (s *Service) SaveDocument(ctx context.Context, doc *Document, content strin
 		}
 	}
 
-	// 4. 更新文档状态
 	_, err = s.DB.ExecContext(ctx,
 		`UPDATE public.knowledge_documents
 		 SET status='ready', chunk_count=$2, updated_at=NOW()
@@ -143,15 +165,154 @@ func (s *Service) SaveDocument(ctx context.Context, doc *Document, content strin
 // GetDocument 获取文档
 func (s *Service) GetDocument(ctx context.Context, id int64) (*Document, error) {
 	var d Document
+	var storagePath string
 	err := s.DB.QueryRowContext(ctx,
-		`SELECT id, title, category, description, file_name, file_type, file_size, status, chunk_count, created_by, created_at
+		`SELECT id, title, category, description, file_name, file_type, file_size, status, chunk_count, created_by, created_at, COALESCE(storage_path,'')
 		 FROM public.knowledge_documents WHERE id=$1`, id,
 	).Scan(&d.ID, &d.Title, &d.Category, &d.Description, &d.FileName, &d.FileType,
-		&d.FileSize, &d.Status, &d.ChunkCount, &d.CreatedBy, &d.CreatedAt)
+		&d.FileSize, &d.Status, &d.ChunkCount, &d.CreatedBy, &d.CreatedAt, &storagePath)
 	if err != nil {
 		return nil, err
 	}
+	d.StoragePath = storagePath
 	return &d, nil
+}
+
+// GetDocumentContent 获取文档的文本内容（用于在线编辑）
+func (s *Service) GetDocumentContent(ctx context.Context, id int64) (string, error) {
+	var storagePath, fileType string
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(storage_path,''), file_type FROM public.knowledge_documents WHERE id=$1`, id,
+	).Scan(&storagePath, &fileType)
+	if err != nil {
+		return "", fmt.Errorf("文档不存在: %w", err)
+	}
+	if storagePath == "" {
+		return "", fmt.Errorf("文档文件不存在")
+	}
+
+	data, err := os.ReadFile(storagePath)
+	if err != nil {
+		return "", fmt.Errorf("读取文件失败: %w", err)
+	}
+
+	// 对 txt/md/json/csv 等文本文件处理编码后返回
+	switch strings.ToLower(fileType) {
+	case ".txt", ".md", ".markdown", ".log", ".json", ".csv":
+		return decodeToUTF8(data), nil
+	case ".docx":
+		return parseDocx(data)
+	case ".xlsx", ".xls":
+		return parseXLSX(data)
+	case ".pdf":
+		return parsePDF(data)
+	default:
+		return decodeToUTF8(data), nil
+	}
+}
+
+// decodeToUTF8 检测文件编码并转换为 UTF-8
+func decodeToUTF8(data []byte) string {
+	// 1. 先去除 UTF-8 BOM
+	if len(data) >= 3 && data[0] == 0xEF && data[1] == 0xBB && data[2] == 0xBF {
+		data = data[3:]
+	}
+	// 2. 如果已经是合法 UTF-8，直接返回
+	if utf8.Valid(data) {
+		return string(data)
+	}
+	// 3. 尝试 GB18030（兼容 GBK/GB2312）解码为 UTF-8
+	decoded, err := simplifiedchinese.GB18030.NewDecoder().Bytes(data)
+	if err != nil {
+		return string(data)
+	}
+	return string(decoded)
+}
+
+// UpdateDocumentContent 更新文档内容并重新分块向量化
+func (s *Service) UpdateDocumentContent(ctx context.Context, id int64, newContent string) error {
+	// 1. 获取存储路径和文件类型
+	var storagePath, fileType string
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT COALESCE(storage_path,''), file_type FROM public.knowledge_documents WHERE id=$1`, id,
+	).Scan(&storagePath, &fileType)
+	if err != nil {
+		return fmt.Errorf("文档不存在: %w", err)
+	}
+
+	// 2. 写回文件
+	if err := os.WriteFile(storagePath, []byte(newContent), 0644); err != nil {
+		return fmt.Errorf("保存文件失败: %w", err)
+	}
+
+	// 3. 优先使用 LlamaIndex 重新索引
+	if s.RAG != nil {
+		chunkCount, err := s.RAG.IndexDocument(ctx, id, newContent)
+		if err != nil {
+			// RAG 失败时降级到 Go 本地分块 + 向量化
+			fmt.Printf("[WARN] LlamaIndex 重新索引失败，降级到本地向量化: %v\n", err)
+		} else {
+			_, err = s.DB.ExecContext(ctx,
+				`UPDATE public.knowledge_documents SET status='ready', chunk_count=$2, updated_at=NOW() WHERE id=$1`,
+				id, chunkCount)
+			return err
+		}
+	}
+
+	// 4. 回退：Go 原有分块 + 向量化
+	_, _ = s.DB.ExecContext(ctx, `DELETE FROM public.knowledge_chunks WHERE document_id=$1`, id)
+
+	chunks := ChunkText(newContent, DefaultChunkOptions())
+	if len(chunks) == 0 {
+		_, _ = s.DB.ExecContext(ctx,
+			`UPDATE public.knowledge_documents SET status='failed', chunk_count=0, updated_at=NOW() WHERE id=$1`, id)
+		return fmt.Errorf("内容为空，无法分块")
+	}
+
+	for i, chunk := range chunks {
+		vec, err := s.Ollama.Embedding(ctx, s.EmbedModel, chunk)
+		if err != nil {
+			_, _ = s.DB.ExecContext(ctx,
+				`UPDATE public.knowledge_documents SET status='failed', updated_at=NOW() WHERE id=$1`, id)
+			return fmt.Errorf("向量化第 %d 块失败: %w", i+1, err)
+		}
+		_, err = s.DB.ExecContext(ctx,
+			`INSERT INTO public.knowledge_chunks (document_id, chunk_index, content, embedding)
+			 VALUES ($1, $2, $3, $4::vector)`,
+			id, i, chunk, vectorLiteral(vec))
+		if err != nil {
+			_, _ = s.DB.ExecContext(ctx,
+				`UPDATE public.knowledge_documents SET status='failed', updated_at=NOW() WHERE id=$1`, id)
+			return fmt.Errorf("保存第 %d 块失败: %w", i+1, err)
+		}
+	}
+
+	_, err = s.DB.ExecContext(ctx,
+		`UPDATE public.knowledge_documents
+		 SET status='ready', chunk_count=$2, updated_at=NOW()
+		 WHERE id=$1`, id, len(chunks))
+	return err
+}
+
+// SaveImage 保存图片文档（不解析文本内容，只存储和记录）
+func (s *Service) SaveImage(ctx context.Context, doc *Document, filePath string, description string) error {
+	var docID int64
+	var createdAt time.Time
+	err := s.DB.QueryRowContext(ctx,
+		`INSERT INTO public.knowledge_documents
+		 (title, category, description, file_name, file_type, file_size, storage_path, status, created_by)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, 'ready', $8)
+		 RETURNING id, created_at`,
+		doc.Title, doc.Category, description, doc.FileName, doc.FileType, doc.FileSize, filePath, doc.CreatedBy,
+	).Scan(&docID, &createdAt)
+	if err != nil {
+		return fmt.Errorf("插入图片记录失败: %w", err)
+	}
+	doc.ID = docID
+	doc.CreatedAt = createdAt
+	doc.Status = "ready"
+	doc.ChunkCount = 0
+	return nil
 }
 
 // ListDocuments 文档列表
@@ -209,7 +370,18 @@ func (s *Service) Search(ctx context.Context, query string, topK int, minScore f
 		minScore = 0.3
 	}
 
-	// 生成查询向量
+	// 优先使用 LlamaIndex Python RAG 服务
+	if s.RAG != nil {
+		pyResults, err := s.RAG.Search(ctx, query, topK, minScore)
+		if err != nil {
+			// Python 服务失败时回退到 Go 本地检索
+			fmt.Printf("[WARN] LlamaIndex 搜索失败，回退本地: %v\n", err)
+		} else {
+			return pyResults, nil
+		}
+	}
+
+	// 回退：Go 本地 pgvector 检索
 	vec, err := s.Ollama.Embedding(ctx, s.EmbedModel, query)
 	if err != nil {
 		return nil, fmt.Errorf("查询向量化失败: %w", err)
@@ -286,12 +458,32 @@ func sortResults(results []SearchResult) {
 
 // SaveFAQ 新增 FAQ
 func (s *Service) SaveFAQ(ctx context.Context, faq *FAQ) error {
+	tagsJSON, _ := json.Marshal(faq.Tags)
+
+	// 优先使用 LlamaIndex RAG 服务做向量化
+	if s.RAG != nil {
+		// 先插入获取 ID
+		err := s.DB.QueryRowContext(ctx,
+			`INSERT INTO public.knowledge_faqs (question, answer, category, tags, embedding, created_by)
+			 VALUES ($1, $2, $3, $4, '[0]'::vector, $5) RETURNING id, created_at`,
+			faq.Question, faq.Answer, faq.Category, string(tagsJSON), faq.CreatedBy,
+		).Scan(&faq.ID, &faq.CreatedAt)
+		if err != nil {
+			return fmt.Errorf("插入 FAQ 失败: %w", err)
+		}
+		// 让 Python 服务生成正确的 embedding 并更新
+		if err := s.RAG.IndexFAQ(ctx, faq.ID, faq.Question, faq.Answer); err != nil {
+			fmt.Printf("[WARN] LlamaIndex FAQ 向量化失败: %v\n", err)
+		}
+		return nil
+	}
+
+	// 回退：Go 本地向量化
 	vec, err := s.Ollama.Embedding(ctx, s.EmbedModel, faq.Question+"\n"+faq.Answer)
 	if err != nil {
 		return fmt.Errorf("FAQ 向量化失败: %w", err)
 	}
 
-	tagsJSON, _ := json.Marshal(faq.Tags)
 	err = s.DB.QueryRowContext(ctx,
 		`INSERT INTO public.knowledge_faqs (question, answer, category, tags, embedding, created_by)
 		 VALUES ($1, $2, $3, $4, $5::vector, $6) RETURNING id, created_at`,
@@ -376,6 +568,14 @@ func (s *Service) SaveConversation(ctx context.Context, userID string) (int64, e
 	return id, err
 }
 
+// UpdateConversationTitle 更新对话标题
+func (s *Service) UpdateConversationTitle(ctx context.Context, conversationID int64, title string) error {
+	_, err := s.DB.ExecContext(ctx,
+		`UPDATE public.knowledge_conversations SET title = $1, updated_at = NOW() WHERE id = $2`,
+		title, conversationID)
+	return err
+}
+
 // SaveMessage 保存消息
 func (s *Service) SaveMessage(ctx context.Context, conversationID int64, role, content string, sources []SearchResult) error {
 	sourcesJSON := "[]"
@@ -456,6 +656,16 @@ func (s *Service) ListConversations(ctx context.Context, userID string) ([]map[s
 		})
 	}
 	return convs, nil
+}
+
+// DeleteConversation 删除会话及其消息
+func (s *Service) DeleteConversation(ctx context.Context, conversationID int64) error {
+	_, err := s.DB.ExecContext(ctx, `DELETE FROM public.knowledge_messages WHERE conversation_id=$1`, conversationID)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.ExecContext(ctx, `DELETE FROM public.knowledge_conversations WHERE id=$1`, conversationID)
+	return err
 }
 
 // Stats 知识库统计
