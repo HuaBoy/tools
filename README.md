@@ -10,12 +10,14 @@
 
 ---
 
-## 📢 最新更新（2026-08-22）
+## 📢 最新更新（2026-08-28）
 
+- **Python RAG 知识库服务**：基于 LlamaIndex + pgvector 的语义检索引擎，支持文档分块、向量化、语义搜索
 - **AI 固件版本查询**：AI 助手新增设备固件版本查询能力，询问"查看起爆器固件版本"即可获取结构化数据
-- **Ollama 本地部署**：AI 助手默认使用本地 Ollama 模型（deepseek-r1:7b），数据零泄密
-- **一键部署**：支持本地构建后一键上传到服务器（`scp` + Caddy 自动热加载）
-- **README 更新**：新增 Ollama 部署详细说明、更新日志
+- **Ollama 本地部署**：AI 助手默认使用本地 Ollama 模型（deepseek-r1:7b + bge-m3 向量模型），数据零泄密
+- **一键启动脚本**：`start-all.bat` 一键启动全部服务（Ollama → Python RAG → Go 后端 → Vue 前端）
+- **开机自启**：`autostart-services.bat` 静默模式开机自启动，适合服务器部署
+- **README 更新**：新增 Python RAG 详细说明、故障排查、监控健康检查、开发指南
 
 ---
 
@@ -32,11 +34,26 @@
 ### 📚 AI 知识库
 | 模块 | 说明 |
 |------|------|
-| 智能知识库（RAG） | 基于检索增强生成的问答式知识检索 |
+| 智能知识库（RAG） | 基于 LlamaIndex + pgvector 的语义检索，支持文档分块、向量化、问答式检索 |
 | 版本手册 | 产品手册多版本管理，全文搜索 |
 | 版本履历 | 各版本迭代记录 |
 | 产线履历 | 生产批次历史记录 |
 | 录音管理 | 现场录音采集与归档 |
+
+**知识库架构详解：**
+```
+用户提问
+    ↓
+Go 后端 (8080) → 调用 Python RAG (8001)
+    ↓
+LlamaIndex SentenceSplitter 分块 (512 token/块, 80 token 重叠)
+    ↓
+Ollama bge-m3 向量化 (本地, 零延迟)
+    ↓
+pgvector 余弦相似度检索 (PostgreSQL + pgvector 扩展)
+    ↓
+返回 Top-K 结果 → Go 后端构建 RAG 上下文 → LLM 生成回答
+```
 
 ### 🌐 海外业务
 | 模块 | 说明 |
@@ -362,6 +379,120 @@ docker exec ai-kb-ollama ollama list
 
 切换方法：在 **系统管理 → 三方账号授权** 页面修改对应配置即可，AI 标签实时反映当前 Provider。
 
+### 5. Python RAG 知识库服务详解
+
+> 基于 LlamaIndex + pgvector 的本地向量检索引擎，为 AI 智能助手提供语义级文档检索能力。
+
+#### 5.1 架构总览
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                        用户在浏览器提问                            │
+└──────────────────────────┬───────────────────────────────────────┘
+                           ↓
+┌──────────────────────────────────────────────────────────────────┐
+│              Go 后端 (gin, 端口 8080)                             │
+│  ├── 接收用户问题                                                 │
+│  ├── 调用 Python RAG 构建上下文 (/api/rag/context)                 │
+│  ├── 将上下文 + 问题拼接为 Prompt                                   │
+│  └── 调用 Ollama LLM (deepseek-r1:7b) 生成最终回答                  │
+└──────┬──────────────────────────────┬────────────────────────────┘
+       │                              │
+       ↓                              ↓
+┌────────────────────┐    ┌──────────────────────────────────────┐
+│ Python RAG (8001)  │    │ Ollama LLM (11434)                   │
+│ LlamaIndex 引擎     │    │ deepseek-r1:7b (文本生成)              │
+│ ├── 文档分块        │    └──────────────────────────────────────┘
+│ ├── 向量化 (bge-m3) │
+│ ├── pgvector 检索   │
+│ └── 上下文构建       │
+└────────┬───────────┘
+         ↓
+┌──────────────────────────────────────────────────────────────────┐
+│ PostgreSQL + pgvector (端口 5432)                                 │
+│ ├── knowledge_documents      — 知识库文档                         │
+│ ├── knowledge_chunks         — 文档分块 (embedding 向量)          │
+│ ├── knowledge_faqs           — FAQ 条目 (embedding 向量)          │
+│ └── knowledge_categories     — 知识分类                           │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+#### 5.2 服务组件
+
+| 组件 | 技术栈 | 端口 | 说明 |
+|------|--------|------|------|
+| Python RAG 引擎 | FastAPI + LlamaIndex + psycopg | 8001 | 文档分块、向量化、语义检索 |
+| Ollama Embedding | bge-m3 (通过 Ollama) | 11434 | 文本 → 1024 维向量 |
+| Ollama LLM | deepseek-r1:7b | 11434 | 根据检索结果生成回答 |
+| PostgreSQL + pgvector | pgvector/pgvector:pg16 | 5432 | 向量存储与相似度检索 |
+
+#### 5.3 核心 API
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/health` | 健康检查，返回 `{"status":"ok","engine":"llamaindex"}` |
+| POST | `/api/rag/index` | 文档索引：分块 → 向量化 → 存入 pgvector |
+| POST | `/api/rag/search` | 语义搜索：返回 Top-K 相关文档分块 |
+| POST | `/api/rag/context` | 构建 RAG 上下文：搜索 + 格式化为 LLM Prompt 可用的文本 |
+| POST | `/api/rag/faq` | FAQ 向量化并存入 |
+| DELETE | `/api/rag/document/{id}` | 删除文档分块 |
+| DELETE | `/api/rag/faq/{id}` | 删除 FAQ |
+
+#### 5.4 数据库表结构
+
+**knowledge_chunks（核心向量表）：**
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| `id` | SERIAL PRIMARY KEY | 分块 ID |
+| `document_id` | INTEGER | 关联文档 ID |
+| `chunk_index` | INTEGER | 分块序号（从 0 开始） |
+| `content` | TEXT | 分块文本内容 |
+| `embedding` | vector(1024) | bge-m3 生成的 1024 维向量 |
+| `metadata_json` | JSONB | 元数据（文件名、页码等） |
+| `created_at` | TIMESTAMP | 创建时间 |
+
+**knowledge_faqs：**
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| `id` | SERIAL PRIMARY KEY | FAQ ID |
+| `question` | TEXT | 问题 |
+| `answer` | TEXT | 回答 |
+| `embedding` | vector(1024) | 问题+回答的联合向量 |
+| `category` | VARCHAR(100) | 分类 |
+| `created_at` | TIMESTAMP | 创建时间 |
+
+#### 5.5 向量化流程
+
+1. **分块**：LlamaIndex `SentenceSplitter`，每块 512 token，相邻块重叠 80 token
+2. **嵌入**：调用 Ollama `/api/embed` 接口，模型 `bge-m3`，输出 1024 维浮点向量
+3. **存储**：`psycopg` 直接写入 `knowledge_chunks.embedding` 列（vector 类型）
+4. **检索**：`pgvector` 的余弦距离运算符 `<=>`，返回相似度 ≥ 0.3 的 Top-K 结果
+
+#### 5.6 配置说明（.env）
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama 服务地址 |
+| `EMBED_MODEL` | `bge-m3` | 向量化模型 |
+| `CHAT_MODEL` | `deepseek-r1:7b` | 对话模型 |
+| `DATABASE_URL` | — | PostgreSQL 连接串 |
+| `RAG_PORT` | `8001` | RAG 服务端口 |
+
+#### 5.7 Python 依赖
+
+```
+fastapi                — Web 框架
+uvicorn[standard]      — ASGI 服务器
+llama-index-core>=0.12.0 — 文档分块引擎
+llama-index-readers-file>=0.4.0 — 文件读取器
+psycopg[binary]>=3.2.0 — PostgreSQL 驱动
+httpx                  — HTTP 客户端（调用 Ollama）
+python-dotenv          — 环境变量加载
+openpyxl               — Excel 支持
+```
+
 ---
 
 ## 📡 API 概览
@@ -549,6 +680,420 @@ systemctl restart go-server
 
 ---
 
+## 📊 监控与健康检查
+
+### 一键检查全部服务状态
+
+```powershell
+# Windows PowerShell - 检查所有端口
+netstat -ano | Select-String ":(8001|8080|5432|11434)\s" | Select-String "LISTENING"
+```
+
+### 各服务健康检查端点
+
+| 服务 | 健康检查 URL | 预期响应 |
+|------|-------------|---------|
+| PostgreSQL | `psql -h 127.0.0.1 -p 5432 -U kbuser -d knowledge -c "SELECT 1"` | `1` |
+| Ollama | `curl http://127.0.0.1:11434/api/tags` | JSON 模型列表 |
+| Python RAG | `curl http://127.0.0.1:8001/health` | `{"status":"ok","engine":"llamaindex"}` |
+| Go 后端 | `curl http://127.0.0.1:8080/health` | JSON 健康信息 |
+
+### 一键验证脚本
+
+```powershell
+# check-services.ps1 - 验证全部服务
+Write-Host "=== 知识库服务状态 ===" -ForegroundColor Cyan
+
+# PostgreSQL
+try {
+    $r = python -c "import psycopg; c=psycopg.connect('postgresql://kbuser:kbpass_2026@127.0.0.1:5432/knowledge'); cur=c.cursor(); cur.execute('SELECT count(*) FROM knowledge_documents'); print('documents:', cur.fetchone()[0]); c.close()"
+    Write-Host "[OK] PostgreSQL: $r" -ForegroundColor Green
+} catch {
+    Write-Host "[FAIL] PostgreSQL 未运行" -ForegroundColor Red
+}
+
+# Ollama
+try {
+    $r = (Invoke-WebRequest -Uri "http://127.0.0.1:11434/api/tags" -TimeoutSec 3).Content | ConvertFrom-Json
+    Write-Host "[OK] Ollama: $($r.models.Count) 个模型" -ForegroundColor Green
+} catch {
+    Write-Host "[FAIL] Ollama 未运行" -ForegroundColor Red
+}
+
+# Python RAG
+try {
+    $r = (Invoke-WebRequest -Uri "http://127.0.0.1:8001/health" -TimeoutSec 3).Content
+    Write-Host "[OK] Python RAG: $r" -ForegroundColor Green
+} catch {
+    Write-Host "[FAIL] Python RAG 未运行" -ForegroundColor Red
+}
+
+# Go 后端
+try {
+    $r = (Invoke-WebRequest -Uri "http://127.0.0.1:8080/health" -TimeoutSec 3).Content
+    Write-Host "[OK] Go 后端: $r" -ForegroundColor Green
+} catch {
+    Write-Host "[FAIL] Go 后端未运行" -ForegroundColor Red
+}
+```
+
+### 日志文件位置
+
+| 服务 | 日志路径 | 说明 |
+|------|---------|------|
+| Go 后端 | `backend/logs/app.log` | API 请求日志 |
+| Python RAG | `logs/python-rag.log` | RAG 引擎日志 |
+| 开机自启 | `logs/go-backend.log` | 后端静默启动日志 |
+
+### 关键进程管理
+
+```powershell
+# 查看关键进程
+Get-Process ollama, python, server -ErrorAction SilentlyContinue | Select-Object Name, Id, CPU, WorkingSet
+
+# 终止特定进程
+taskkill /PID <进程ID> /F
+
+# 查看端口占用
+netstat -ano | findstr ":8080"
+netstat -ano | findstr ":8001"
+netstat -ano | findstr ":5432"
+netstat -ano | findstr ":11434"
+```
+
+---
+
+## 🔧 故障排查
+
+### 1. Python RAG 服务启动失败
+
+**现象**：端口 8001 无响应
+
+```powershell
+# 排查步骤
+cd E:\tools20260623\python-rag
+python run.py
+# 观察终端输出的错误信息
+```
+
+**常见原因与解决方案**：
+
+| 原因 | 错误信息 | 解决方案 |
+|------|---------|---------|
+| 缺少依赖 | `ModuleNotFoundError: No module named 'xxx'` | `pip install -r requirements.txt` |
+| PostgreSQL 连不上 | `connection refused` | 确认 PostgreSQL 运行中：`sc query postgresql-x64-16` |
+| 数据库不存在 | `database "knowledge" does not exist` | `createdb -U kbuser knowledge` |
+| pgvector 未安装 | `type "vector" does not exist` | 安装 pgvector 扩展：`CREATE EXTENSION IF NOT EXISTS vector;` |
+| Ollama 未运行 | `Connection refused` | 启动 Ollama：`ollama serve` |
+| 端口被占用 | `Address already in use` | `netstat -ano | findstr ":8001"` 找到占用进程并终止 |
+
+### 2. Ollama 模型不可用
+
+**现象**：AI 助手回复空白或报错
+
+```powershell
+# 检查模型列表
+ollama list
+# 确认输出包含 deepseek-r1:7b 和 bge-m3
+
+# 如果模型不在列表中，检查 OLLAMA_MODELS 路径
+echo $env:OLLAMA_MODELS
+# 应输出: E:\ollama_models\models
+
+# 重新拉取模型
+ollama pull deepseek-r1:7b
+ollama pull bge-m3
+```
+
+**Windows 环境变量设置**（永久生效）：
+
+```powershell
+# 以管理员身份运行 PowerShell
+[System.Environment]::SetEnvironmentVariable("OLLAMA_MODELS", "E:\ollama_models\models", "Machine")
+# 设置后重启终端/Ollama 服务
+```
+
+### 3. Go 后端无法连接数据库
+
+**现象**：`/health` 返回错误
+
+```powershell
+# 检查 .env 配置
+cat E:\tools20260623\backend\.env | findstr DB_DSN
+# 应输出: DB_DSN=postgres://kbuser:kbpass_2026@127.0.0.1:5432/knowledge?sslmode=disable
+
+# 测试数据库连接
+psql -h 127.0.0.1 -p 5432 -U kbuser -d knowledge -c "\dt"
+# 应列出所有表
+```
+
+### 4. AI 助手回复质量差
+
+**排查**：
+
+1. **确认知识库有数据**：
+```sql
+psql -U kbuser -d knowledge -c "SELECT count(*) FROM knowledge_documents;"
+psql -U kbuser -d knowledge -c "SELECT count(*) FROM knowledge_chunks;"
+```
+
+2. **确认向量检索有效**：
+```sql
+-- 检查是否有 embedding 数据
+psql -U kbuser -d knowledge -c "SELECT count(*) FROM knowledge_chunks WHERE embedding IS NOT NULL;"
+```
+
+3. **确认 Ollama 模型正常**：
+```bash
+curl http://127.0.0.1:11434/api/embed -d '{"model":"bge-m3","input":"测试文本"}'
+# 应返回 embedding 向量
+```
+
+### 5. 前端显示异常
+
+| 现象 | 原因 | 解决方案 |
+|------|------|---------|
+| 页面空白 | 后端未启动 | 启动 Go 后端 |
+| 登录失败 | admin 密码被重置 | 使用 `admin / 800228` 登录 |
+| AI 标签灰色 | Ollama 未配置 | 三方账号授权页配置 Ollama |
+| 接口 502 | Caddy 未配置 | 检查 Caddyfile 反向代理规则 |
+
+### 6. 服务器部署问题
+
+```bash
+# SSH 到服务器
+ssh root@server
+
+# 检查服务状态
+systemctl status go-server
+docker ps | grep ai-kb
+
+# 查看后端日志
+tail -f /opt/go-server/logs/app.log
+
+# 重启服务
+systemctl restart go-server
+```
+
+---
+
+## 💻 开发指南
+
+### 项目结构
+
+```
+E:\tools20260623/
+├── frontend/                 # Vue3 前端
+│   ├── src/
+│   │   ├── views/            # 页面组件
+│   │   │   ├── Home.vue              # 首页仪表盘（含 AI 助手）
+│   │   │   ├── AiAssistant.vue       # 独立 AI 助手页
+│   │   │   ├── knowledge/            # 知识库管理
+│   │   │   ├── overseas-shipping/    # 海外发货
+│   │   │   ├── operation-manual/     # 操作手册
+│   │   │   ├── app-store/            # 应用商店
+│   │   │   └── system/               # 系统管理
+│   │   ├── services/
+│   │   │   └── aiService.js          # AI 服务（支持 Ollama/DeepSeek/混元）
+│   │   ├── components/layout/        # 布局组件（含侧边栏 AI 助手）
+│   │   └── router/                   # 路由配置
+│   ├── vite.config.js                # Vite 配置（含代理规则）
+│   └── package.json
+│
+├── backend/                  # Go 后端
+│   ├── cmd/server/main.go            # 入口
+│   ├── internal/
+│   │   ├── handler/          # HTTP 处理器
+│   │   ├── model/            # 数据模型
+│   │   ├── repository/       # 数据库操作
+│   │   ├── service/          # 业务逻辑
+│   │   ├── middleware/       # 中间件（JWT、CORS 等）
+│   │   └── migration/       # 数据库迁移
+│   ├── .env                          # 环境变量
+│   └── server.exe                    # 编译后的可执行文件
+│
+├── python-rag/               # Python RAG 知识库服务
+│   ├── main.py               # FastAPI 入口
+│   ├── rag_engine.py         # LlamaIndex 引擎
+│   ├── config.py             # 配置管理
+│   ├── run.py                # 启动脚本
+│   ├── .env                  # 环境变量
+│   └── requirements.txt      # Python 依赖
+│
+├── knowledge/                # 知识库文件存储
+├── logs/                     # 日志文件
+├── data/                     # 运行时数据
+│
+├── start-all.bat             # 一键启动全部服务
+├── autostart-services.bat    # 开机自启动（静默模式）
+├── local-setup.bat           # 本地开发环境初始化
+├── docker-compose.yml        # Docker 编排（PostgreSQL + pgvector）
+├── deploy.sh                 # 服务器部署脚本
+└── README.md                 # 本文档
+```
+
+### 开发环境搭建
+
+#### 前端开发
+
+```bash
+cd E:\tools20260623\frontend
+
+# 安装依赖
+npm install
+# 或
+pnpm install
+
+# 启动开发服务器（热重载，端口 3000）
+npm run dev
+
+# 生产构建
+npm run build
+# 产物在 dist/ 目录
+```
+
+#### 后端开发
+
+```bash
+cd E:\tools20260623\backend
+
+# 安装 Go 依赖
+go mod download
+
+# 本地运行
+go run cmd/server/main.go
+
+# 编译生产版本
+go build -o server.exe ./cmd/server
+
+# 交叉编译 Linux 版本
+CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o bin/server-linux-amd64 ./cmd/server
+```
+
+#### Python RAG 开发
+
+```bash
+cd E:\tools20260623\python-rag
+
+# 创建虚拟环境（首次）
+python -m venv venv
+venv\Scripts\activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动开发服务器（热重载）
+python run.py
+# 或手动：
+uvicorn main:app --host 0.0.0.0 --port 8001 --reload
+```
+
+### 数据库管理
+
+```sql
+-- 连接数据库
+psql -h 127.0.0.1 -p 5432 -U kbuser -d knowledge
+
+-- 查看所有表
+\dt
+
+-- 查看知识库文档数
+SELECT count(*) FROM knowledge_documents;
+
+-- 查看向量分块数
+SELECT count(*) FROM knowledge_chunks WHERE embedding IS NOT NULL;
+
+-- 查看 FAQ 数
+SELECT count(*) FROM knowledge_faqs;
+
+-- 查看文档分块详情
+SELECT dc.id, dc.title, count(ch.id) as chunk_count
+FROM knowledge_documents dc
+LEFT JOIN knowledge_chunks ch ON ch.document_id = dc.id
+GROUP BY dc.id, dc.title;
+
+-- 手动重建索引（向量检索性能优化）
+REINDEX TABLE knowledge_chunks;
+
+-- 查看 pgvector 索引状态
+SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'knowledge_chunks';
+```
+
+### 环境变量速查
+
+#### 前端
+
+| 变量 | 文件 | 说明 |
+|------|------|------|
+| `VITE_API_BASE_URL` | `.env` | 后端 API 地址 |
+| 代理规则 | `vite.config.js` | 开发环境代理配置 |
+
+#### Go 后端
+
+| 变量 | 文件 | 说明 |
+|------|------|------|
+| `DB_DSN` | `backend/.env` | PostgreSQL 连接串 |
+| `JWT_SECRET` | `backend/.env` | JWT 签名密钥 |
+| `OLLAMA_URL` | `backend/.env` | Ollama 服务地址 |
+| `OLLAMA_CHAT_MODEL` | `backend/.env` | 对话模型名 |
+| `OLLAMA_EMBEDDING_MODEL` | `backend/.env` | 向量模型名 |
+| `KNOWLEDGE_STORE_DIR` | `backend/.env` | 知识库存储路径 |
+| `SERVER_PORT` | `backend/.env` | 服务端口 |
+
+#### Python RAG
+
+| 变量 | 文件 | 说明 |
+|------|------|------|
+| `OLLAMA_BASE_URL` | `python-rag/.env` | Ollama 服务地址 |
+| `EMBED_MODEL` | `python-rag/.env` | 向量化模型名 |
+| `CHAT_MODEL` | `python-rag/.env` | 对话模型名 |
+| `DATABASE_URL` | `python-rag/.env` | PostgreSQL 连接串 |
+| `RAG_PORT` | `python-rag/.env` | RAG 服务端口 |
+
+---
+
+## 📁 项目目录速览
+
+```
+E:\tools20260623\
+├── README.md                        # 本文档（约 800 行）
+├── docker-compose.yml               # Docker 编排（PostgreSQL + pgvector + 后端 + 前端）
+├── start-all.bat                    # 一键启动（开发环境）
+├── autostart-services.bat           # 开机自启（服务器/生产环境）
+├── local-setup.bat                  # 本地环境初始化
+├── deploy.sh                        # Linux 服务器部署脚本
+├── deploy-knowledge.sh              # 知识库服务部署脚本
+│
+├── frontend/                        # Vue3 + Vite 前端
+│   ├── src/views/                   # 页面（首页/知识库/发货/手册/系统管理）
+│   ├── src/services/aiService.js    # AI 服务封装（Ollama/DeepSeek/混元）
+│   ├── src/components/layout/       # 布局 + 侧边栏 AI 助手
+│   └── vite.config.js              # 代理配置
+│
+├── backend/                         # Go 后端 (gin)
+│   ├── cmd/server/main.go          # 入口
+│   ├── internal/                   # 分层架构 (handler/model/service/repository)
+│   ├── server.exe                  # 编译后二进制
+│   └── .env                        # 环境变量
+│
+├── python-rag/                      # Python RAG 知识库服务
+│   ├── main.py                     # FastAPI 入口
+│   ├── rag_engine.py               # LlamaIndex 向量引擎
+│   ├── config.py                   # 配置
+│   ├── run.py                      # 启动脚本
+│   └── requirements.txt            # Python 依赖
+│
+├── knowledge/                       # 知识库文件（上传的文档）
+├── data/                            # 运行时数据
+│   ├── postgres/                   # PostgreSQL 数据目录
+│   └── knowledge/                  # 知识库存储
+└── logs/                            # 日志
+    ├── app.log                     # Go 后端日志
+    └── python-rag.log              # RAG 服务日志
+```
+
+---
+
 ## 🤝 代码托管
 
 项目代码自动同步到以下仓库（每日自动提交推送）：
@@ -556,6 +1101,39 @@ systemctl restart go-server
 - **GitHub**：`git@github.com:HuaBoy/tools.git`
 - **Gitee（主仓库）**：`https://gitee.com/makersoft/app-store.git`
 - **Gitee（历史仓库）**：`https://gitee.com/makersoft/ai-tracking-and-toolset.git`
+
+---
+
+## 📝 更新日志
+
+### 2026-08-28
+
+- 新增 Python RAG 知识库服务详细文档（架构图、API、数据库表结构、向量化流程）
+- 新增监控与健康检查章节（一键检查脚本、日志文件位置、进程管理）
+- 新增故障排查章节（6 类常见问题与解决方案）
+- 新增开发指南章节（项目结构、开发环境搭建、数据库管理、环境变量速查）
+- 新增项目目录速览（完整目录树）
+- 新增更新日志
+- 更新服务架构图（含 Python RAG 引擎）
+
+### 2026-08-22
+
+- AI 固件版本查询：AI 助手新增设备固件版本查询能力
+- Ollama 本地部署：AI 助手默认使用本地 Ollama 模型，数据零泄密
+- 一键部署：支持本地构建后一键上传到服务器
+- 新增 Ollama 部署详细说明
+
+### 2026-08-10
+
+- Python RAG 引擎上线：LlamaIndex + pgvector 语义检索
+- Go 后端 RAG 集成：自动调用 Python RAG 构建上下文
+- 数据库迁移：新增 knowledge_chunks（pgvector 向量表）
+
+### 2026-07-22
+
+- 首版上线：Vue3 前端 + Go 后端 + PostgreSQL
+- AI 智能助手（支持 DeepSeek / 混元 云端 API）
+- 知识库管理、海外发货、操作手册、应用商店、系统管理
 
 ---
 

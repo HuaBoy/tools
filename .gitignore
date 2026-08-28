@@ -10,10 +10,12 @@ node_modules/
 dist/
 backend/bin/
 *.exe
+*.exe~
+server-linux-amd64
 
 # 环境配置
 .env
-.env.local
+.env.*
 *.pem
 *.key
 
@@ -24,3 +26,16 @@ logs/
 # 临时文件
 tmp/
 *.tmp
+*.bak
+
+# 测试数据
+test_upload.xlsx
+test_docs.cjs
+test_rag.js
+test_upload.js
+test_upload_final.cjs
+backend/verify_result.txt
+backend/final_verify.txt
+backend/restore_content.json
+temp_caddyfile
+test.sh

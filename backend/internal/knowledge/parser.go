@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/ledongthuc/pdf"
+	"github.com/xuri/excelize/v2"
 )
 
 // ParseDocument 解析文档内容为纯文本
@@ -28,6 +29,8 @@ func ParseDocument(fileName string, data []byte) (string, error) {
 		return parseDocx(data)
 	case ".pdf":
 		return parsePDF(data)
+	case ".xlsx", ".xls":
+		return parseXLSX(data)
 	default:
 		return "", fmt.Errorf("不支持的文件格式: %s", ext)
 	}
@@ -241,4 +244,100 @@ func parsePDF(data []byte) (string, error) {
 		return "", fmt.Errorf("PDF 无可提取文本（可能为扫描件或加密）")
 	}
 	return sb.String(), nil
+}
+
+// parseXLSX 使用 excelize 库解析 Excel 文件（支持 .xlsx 和 .xls）
+func parseXLSX(data []byte) (string, error) {
+	f, err := excelize.OpenReader(bytes.NewReader(data))
+	if err != nil {
+		return "", fmt.Errorf("解析 Excel 失败: %w", err)
+	}
+	defer f.Close()
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		return "", fmt.Errorf("Excel 文件没有工作表")
+	}
+
+	var textBuilder strings.Builder
+
+	for _, sheetName := range sheets {
+		rows, err := f.GetRows(sheetName)
+		if err != nil {
+			continue // 跳过无法读取的工作表
+		}
+		if len(rows) == 0 {
+			continue
+		}
+
+		if textBuilder.Len() > 0 {
+			textBuilder.WriteString("\n\n")
+		}
+		textBuilder.WriteString(fmt.Sprintf("--- 工作表: %s ---\n", sheetName))
+
+		// 第一步：清洗数据 - 去空行、统一列数
+		// 先算出最大列数
+		maxCols := 0
+		var rawRows [][]string
+		for _, row := range rows {
+			var cells []string
+			for _, cell := range row {
+				// 关键修复：单元格内换行符替换为 " | " 避免拆行
+				cleaned := strings.ReplaceAll(strings.TrimSpace(cell), "\n", " | ")
+				cleaned = strings.ReplaceAll(cleaned, "\r", "")
+				cells = append(cells, cleaned)
+			}
+			// 去掉尾部连续空单元格
+			for len(cells) > 0 && cells[len(cells)-1] == "" {
+				cells = cells[:len(cells)-1]
+			}
+			// 跳过全空行
+			if len(cells) == 0 || allEmpty(cells) {
+				continue
+			}
+			rawRows = append(rawRows, cells)
+			if len(cells) > maxCols {
+				maxCols = len(cells)
+			}
+		}
+
+		if len(rawRows) == 0 {
+			continue
+		}
+
+		// 第二步：所有行补齐到 maxCols 列，保证对齐
+		for i, cells := range rawRows {
+			for len(cells) < maxCols {
+				cells = append(cells, "")
+			}
+			rawRows[i] = cells
+		}
+
+		// 第三步：输出文本
+		for i, cells := range rawRows {
+			line := strings.Join(cells, "\t")
+			if i == 0 {
+				textBuilder.WriteString(fmt.Sprintf("[表头] %s\n", line))
+			} else {
+				textBuilder.WriteString(fmt.Sprintf("%s\n", line))
+			}
+		}
+	}
+
+	result := textBuilder.String()
+	if strings.TrimSpace(result) == "" {
+		return "", fmt.Errorf("Excel 文件内容为空")
+	}
+
+	return result, nil
+}
+
+// allEmpty 判断字符串切片是否全部为空
+func allEmpty(cells []string) bool {
+	for _, c := range cells {
+		if c != "" {
+			return false
+		}
+	}
+	return true
 }

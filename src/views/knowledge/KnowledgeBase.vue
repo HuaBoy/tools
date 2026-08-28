@@ -8,6 +8,10 @@ import {
   listDocuments,
   uploadDocument,
   deleteDocument,
+  getDocumentContent,
+  updateDocumentContent,
+  uploadImage,
+  getFileUrl,
   searchKnowledge,
   listFAQs,
   createFAQ,
@@ -77,7 +81,7 @@ const handleUpload = async () => {
     ElMessage.warning('请选择文件');
     return;
   }
-  const allowed = ['.txt', '.md', '.markdown', '.json', '.csv', '.log', '.docx', '.pdf'];
+  const allowed = ['.txt', '.md', '.markdown', '.json', '.csv', '.log', '.docx', '.pdf', '.xlsx', '.xls'];
   const ext = (uploadFile.value.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
   if (!allowed.includes(ext)) {
     ElMessage.error('不支持的格式：' + ext + '。支持：' + allowed.join(' '));
@@ -133,6 +137,153 @@ const formatSize = (bytes) => {
   let v = bytes;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   return v.toFixed(1) + ' ' + units[i];
+};
+
+// ===== 在线编辑器 =====
+const editorDialog = ref(false);
+const editorDoc = ref(null);
+const editorContent = ref('');
+const editorSaving = ref(false);
+const editorLoading = ref(false);
+const activeSheetIndex = ref(0);
+
+// 图片类型集合
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+const isImageDoc = (doc) => {
+  const ext = (doc.file_type || '').toLowerCase();
+  return IMAGE_EXTS.includes(ext);
+};
+const isEditableDoc = (doc) => {
+  const ext = (doc.file_type || '').toLowerCase();
+  return ['.txt', '.md', '.markdown', '.json', '.csv', '.log'].includes(ext);
+};
+const isPreviewableDoc = (doc) => {
+  const ext = (doc.file_type || '').toLowerCase();
+  return ['.docx', '.xlsx', '.xls'].includes(ext);
+};
+const isExcelDoc = (doc) => {
+  const ext = (doc.file_type || '').toLowerCase();
+  return ['.xlsx', '.xls'].includes(ext);
+};
+
+// 解析 Excel 文本为结构化工作表数据
+const parsedSheets = computed(() => {
+  if (!editorDoc.value || !isExcelDoc(editorDoc.value) || !editorContent.value) return [];
+  const text = editorContent.value;
+  const sheets = [];
+  const lines = text.split('\n');
+  let currentSheet = null;
+
+  for (const line of lines) {
+    // 检测工作表标题行: "--- 工作表: xxx ---"
+    const sheetMatch = line.match(/^---\s*工作表:\s*(.+?)\s*---$/);
+    if (sheetMatch) {
+      if (currentSheet) sheets.push(currentSheet);
+      currentSheet = { name: sheetMatch[1], headers: [], rows: [] };
+      continue;
+    }
+    if (!currentSheet) continue;
+
+    // 检测表头行: "[表头] col1\tcol2\t..."
+    const headerMatch = line.match(/^\[表头\]\s*(.+)$/);
+    if (headerMatch) {
+      currentSheet.headers = headerMatch[1].split('\t').filter(c => c.trim() !== '');
+      continue;
+    }
+
+    // 空行跳过
+    if (line.trim() === '') continue;
+
+    // 数据行: tab 分隔
+    const cells = line.split('\t');
+    if (cells.some(c => c.trim() !== '')) {
+      currentSheet.rows.push(cells);
+    }
+  }
+  if (currentSheet) sheets.push(currentSheet);
+  return sheets;
+});
+
+const getFileIcon = (doc) => {
+  const ext = (doc.file_type || '').toLowerCase();
+  if (ext === '.pdf') return '📕';
+  if (ext === '.docx') return '📘';
+  if (ext === '.xlsx' || ext === '.xls') return '📗';
+  if (ext === '.md' || ext === '.markdown') return '📝';
+  if (IMAGE_EXTS.includes(ext)) return '🖼️';
+  if (ext === '.json') return '📋';
+  if (ext === '.csv') return '📊';
+  return '📄';
+};
+
+const openEditor = async (doc) => {
+  editorDoc.value = doc;
+  editorDialog.value = true;
+  editorContent.value = '';
+  editorLoading.value = true;
+  activeSheetIndex.value = 0;
+  try {
+    const res = await getDocumentContent(doc.id);
+    editorContent.value = res.content || '';
+  } catch (e) {
+    ElMessage.error('加载内容失败：' + (e.message || ''));
+  } finally {
+    editorLoading.value = false;
+  }
+};
+
+const handleSaveContent = async () => {
+  if (!editorDoc.value) return;
+  editorSaving.value = true;
+  try {
+    await updateDocumentContent(editorDoc.value.id, editorContent.value);
+    ElMessage.success('文档已保存并重新向量化');
+    editorDialog.value = false;
+    await loadDocs();
+    await loadStats();
+  } catch (e) {
+    ElMessage.error('保存失败：' + (e.message || ''));
+  } finally {
+    editorSaving.value = false;
+  }
+};
+
+// ===== 图片上传 =====
+const imageUploadDialog = ref(false);
+const imageUploadFile = ref(null);
+const imageUploadForm = reactive({ title: '', description: '', category: 'image' });
+const imageUploading = ref(false);
+const imageFileInputRef = ref(null);
+const openImagePicker = () => imageFileInputRef.value?.click();
+
+const handleImageSelect = (e) => { imageUploadFile.value = e.target.files[0]; };
+
+const handleImageUpload = async () => {
+  if (!imageUploadFile.value) {
+    ElMessage.warning('请选择图片');
+    return;
+  }
+  imageUploading.value = true;
+  try {
+    const doc = await uploadImage(imageUploadFile.value, {
+      title: imageUploadForm.title || imageUploadFile.value.name,
+      description: imageUploadForm.description,
+      category: imageUploadForm.category
+    });
+    ElMessage.success(`图片「${doc.title}」上传成功`);
+    logsStore.addLog('上传', '知识库', `上传图片: ${doc.title}`);
+    imageUploadDialog.value = false;
+    imageUploadFile.value = null;
+    imageUploadForm.title = '';
+    imageUploadForm.description = '';
+    docPage.value = 1;
+    await loadDocs();
+    await loadStats();
+  } catch (e) {
+    ElMessage.error('上传失败：' + (e.message || ''));
+  } finally {
+    imageUploading.value = false;
+  }
 };
 
 const statusMap = {
@@ -305,16 +456,28 @@ onMounted(() => {
           <button class="tab-btn" :class="{ active: activeTab === 'faqs' }" @click="switchTab('faqs')">❓ 问题库</button>
           <button class="tab-btn" :class="{ active: activeTab === 'search' }" @click="switchTab('search')">🔍 智能搜索</button>
         </div>
-        <div class="action-right">
-          <button class="primary-btn" @click="uploadDialog = true" v-if="activeTab === 'docs'">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            上传文档
-          </button>
-          <button class="primary-btn" @click="faqDialog = true" v-if="activeTab === 'faqs'">
+        <div class="action-right" v-if="activeTab === 'docs'">
+          <div class="upload-row">
+            <button class="primary-btn" @click="uploadDialog = true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              上传文档
+            </button>
+            <button class="image-btn" @click="imageUploadDialog = true">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              上传图片
+            </button>
+          </div>
+        </div>
+        <div class="action-right" v-if="activeTab === 'faqs'">
+          <button class="primary-btn" @click="faqDialog = true">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
@@ -343,12 +506,16 @@ onMounted(() => {
       </div>
 
       <div class="doc-grid" v-if="docs.length">
-        <div v-for="doc in docs" :key="doc.id" class="doc-card">
+        <div v-for="doc in docs" :key="doc.id" class="doc-card" @dblclick="(isEditableDoc(doc) || isPreviewableDoc(doc)) ? openEditor(doc) : null">
           <div class="doc-header">
-            <span class="doc-icon" :style="{ background: getCategoryInfo(doc.category).color + '18' }">📄</span>
+            <span class="doc-icon" :style="{ background: getCategoryInfo(doc.category).color + '18' }">{{ getFileIcon(doc) }}</span>
             <span class="doc-category" :style="{ color: getCategoryInfo(doc.category).color, background: getCategoryInfo(doc.category).color + '12' }">
               {{ getCategoryInfo(doc.category).name }}
             </span>
+          </div>
+          <!-- 图片文档显示缩略图 -->
+          <div v-if="isImageDoc(doc)" class="doc-image-preview">
+            <img :src="getFileUrl(doc.id)" :alt="doc.title" loading="lazy" @click.stop="openEditor(doc)" />
           </div>
           <div class="doc-title" :title="doc.title">{{ doc.title }}</div>
           <div class="doc-meta">
@@ -360,6 +527,14 @@ onMounted(() => {
               {{ statusMap[doc.status]?.label || doc.status }}
             </span>
             <span class="doc-chunks">{{ doc.chunk_count }} 分块</span>
+            <!-- 编辑按钮 -->
+            <button v-if="isEditableDoc(doc) || isPreviewableDoc(doc) || isImageDoc(doc)"
+                    class="doc-edit" @click.stop="openEditor(doc)" title="查看/编辑">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+            </button>
             <button class="doc-delete" @click="handleDeleteDoc(doc)" title="删除">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6" />
@@ -484,14 +659,14 @@ onMounted(() => {
             <label>选择文件</label>
             <div class="file-upload" @click="openFilePicker">
               <input ref="fileInputRef" type="file" style="display:none" @change="handleFileSelect"
-                     accept=".txt,.md,.markdown,.json,.csv,.log,.docx,.pdf" />
+                     accept=".txt,.md,.markdown,.json,.csv,.log,.docx,.pdf,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.webp" />
               <template v-if="uploadFile">
                 <div class="file-selected">📄 {{ uploadFile.name }}（{{ formatSize(uploadFile.size) }}）</div>
               </template>
               <template v-else>
                 <div class="file-placeholder">
                   <span>点击选择文件</span>
-                  <small>支持 TXT / MD / JSON / CSV / LOG / DOCX / PDF</small>
+                  <small>支持 TXT / MD / JSON / CSV / LOG / DOCX / PDF / XLSX / JPG / PNG / GIF</small>
                 </div>
               </template>
             </div>
@@ -546,6 +721,138 @@ onMounted(() => {
         <div class="modal-footer">
           <button class="cancel-btn" @click="faqDialog = false">取消</button>
           <button class="submit-btn" @click="handleAddFAQ">保存入库</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 在线编辑器弹窗 -->
+    <div v-if="editorDialog" class="modal-mask" @click.self="editorDialog = false">
+      <div class="modal editor-modal">
+        <div class="modal-header">
+          <h3>
+            <span v-if="editorDoc && isImageDoc(editorDoc)">🖼️ 图片预览</span>
+            <span v-else-if="editorDoc && isExcelDoc(editorDoc)">📊 表格预览</span>
+            <span v-else-if="editorDoc && isPreviewableDoc(editorDoc)">📘 文档预览</span>
+            <span v-else>📝 在线编辑</span>
+            — {{ editorDoc?.title }}
+          </h3>
+          <button class="modal-close" @click="editorDialog = false">×</button>
+        </div>
+        <div class="modal-body">
+          <!-- 加载中 -->
+          <div v-if="editorLoading" class="editor-loading">
+            <div class="spinner"></div>
+            <span>加载内容中...</span>
+          </div>
+          <!-- 图片预览 -->
+          <div v-else-if="editorDoc && isImageDoc(editorDoc)" class="image-preview-container">
+            <img :src="getFileUrl(editorDoc.id)" :alt="editorDoc.title" class="image-preview-img" />
+            <div class="image-info">
+              <p><strong>文件名：</strong>{{ editorDoc.file_name }}</p>
+              <p><strong>大小：</strong>{{ formatSize(editorDoc.file_size) }}</p>
+            </div>
+          </div>
+          <!-- Excel 表格预览 -->
+          <div v-else-if="editorDoc && isExcelDoc(editorDoc) && parsedSheets.length > 0" class="excel-preview">
+            <div v-if="parsedSheets.length > 1" class="sheet-tabs">
+              <button v-for="(sheet, idx) in parsedSheets" :key="idx"
+                      :class="['sheet-tab-btn', { active: activeSheetIndex === idx }]"
+                      @click="activeSheetIndex = idx">
+                {{ sheet.name }}
+              </button>
+            </div>
+            <div class="sheet-content">
+              <div v-for="(sheet, sIdx) in parsedSheets" :key="sIdx" v-show="sIdx === (parsedSheets.length > 1 ? activeSheetIndex : 0)">
+                <div class="sheet-name" v-if="parsedSheets.length > 1">{{ sheet.name }}</div>
+                <div class="table-wrapper">
+                  <table class="excel-table">
+                    <thead v-if="sheet.headers.length > 0">
+                      <tr>
+                        <th class="row-num-header">#</th>
+                        <th v-for="(h, i) in sheet.headers" :key="i">{{ h || '—' }}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="(row, rIdx) in sheet.rows" :key="rIdx">
+                        <td class="row-num">{{ rIdx + 1 }}</td>
+                        <td v-for="(cell, cIdx) in sheet.headers.length" :key="cIdx">
+                          {{ row[cIdx] || '' }}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- 文本编辑器 -->
+          <div v-else class="editor-container">
+            <textarea
+              v-model="editorContent"
+              class="editor-textarea"
+              :disabled="editorDoc && isPreviewableDoc(editorDoc)"
+              placeholder="文档内容为空"
+              spellcheck="false"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" @click="editorDialog = false">关闭</button>
+          <button v-if="editorDoc && isEditableDoc(editorDoc)"
+                  class="submit-btn" @click="handleSaveContent" :disabled="editorSaving">
+            {{ editorSaving ? '保存并重新向量化...' : '保存并重新向量化' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 图片上传弹窗 -->
+    <div v-if="imageUploadDialog" class="modal-mask" @click.self="imageUploadDialog = false">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>上传图片</h3>
+          <button class="modal-close" @click="imageUploadDialog = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>选择图片</label>
+            <div class="file-upload" @click="openImagePicker">
+              <input ref="imageFileInputRef" type="file" style="display:none" @change="handleImageSelect"
+                     accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.svg" />
+              <template v-if="imageUploadFile">
+                <div class="file-selected">🖼️ {{ imageUploadFile.name }}（{{ formatSize(imageUploadFile.size) }}）</div>
+                <div class="image-upload-preview">
+                  <img :src="URL.createObjectURL(imageUploadFile)" alt="预览" />
+                </div>
+              </template>
+              <template v-else>
+                <div class="file-placeholder">
+                  <span>点击选择图片</span>
+                  <small>支持 JPG / PNG / GIF / WebP / BMP / SVG</small>
+                </div>
+              </template>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>标题（可选，默认用文件名）</label>
+            <input v-model="imageUploadForm.title" type="text" class="form-input" placeholder="图片标题" />
+          </div>
+          <div class="form-group">
+            <label>描述（可选）</label>
+            <input v-model="imageUploadForm.description" type="text" class="form-input" placeholder="简短描述图片内容" />
+          </div>
+          <div class="form-group">
+            <label>分类</label>
+            <select v-model="imageUploadForm.category" class="form-input">
+              <option v-for="c in categoryOptions" :key="c.code" :value="c.code">{{ c.name }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="cancel-btn" @click="imageUploadDialog = false">取消</button>
+          <button class="submit-btn" @click="handleImageUpload" :disabled="imageUploading">
+            {{ imageUploading ? '上传中...' : '上传图片' }}
+          </button>
         </div>
       </div>
     </div>
@@ -611,6 +918,18 @@ onMounted(() => {
   padding: 12px 16px;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.action-bar .action-right {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .tab-segment {
@@ -1091,4 +1410,233 @@ onMounted(() => {
 
 .pagination button:disabled { opacity: .4; cursor: not-allowed; }
 .pagination span { font-size: 13px; color: var(--text-tertiary); }
+
+/* 文档卡片 - 图片缩略图 */
+.doc-image-preview {
+  margin: 8px 0;
+  border-radius: 8px;
+  overflow: hidden;
+  max-height: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+}
+
+.doc-image-preview img {
+  width: 100%;
+  max-height: 160px;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform .2s;
+}
+
+.doc-image-preview img:hover { transform: scale(1.03); }
+
+/* 编辑按钮 */
+.doc-edit {
+  border: none;
+  background: rgba(22,93,255,.08);
+  color: #165DFF;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s;
+}
+
+.doc-edit:hover { background: #165DFF; color: white; }
+
+/* 图片上传按钮 */
+.image-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(114,46,209,.08);
+  color: #722ED1;
+  border: 1px solid rgba(114,46,209,.2);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.image-btn:hover { background: #722ED1; color: white; }
+
+/* 编辑器弹窗 */
+.editor-modal {
+  width: 800px;
+  max-width: 95vw;
+}
+
+.editor-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px;
+  color: var(--text-tertiary);
+}
+
+.editor-container { width: 100%; }
+
+.editor-textarea {
+  width: 100%;
+  min-height: 400px;
+  max-height: 60vh;
+  padding: 16px;
+  border: 1px solid var(--border-color, #dcdfe6);
+  border-radius: 8px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  background: var(--bg-input, #f7f8fa);
+  resize: vertical;
+  outline: none;
+  box-sizing: border-box;
+  tab-size: 2;
+}
+
+.editor-textarea:focus {
+  border-color: #165DFF;
+  box-shadow: 0 0 0 3px rgba(22,93,255,.1);
+}
+
+/* 图片预览 */
+.image-preview-container {
+  text-align: center;
+}
+
+.image-preview-img {
+  max-width: 100%;
+  max-height: 60vh;
+  border-radius: 8px;
+  object-fit: contain;
+  box-shadow: 0 2px 12px rgba(0,0,0,.1);
+}
+
+.image-info {
+  text-align: left;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: var(--bg-input, #f7f8fa);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.image-info p { margin: 4px 0; }
+
+/* 图片上传预览 */
+.image-upload-preview {
+  margin-top: 12px;
+}
+
+.image-upload-preview img {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--border-color, #dcdfe6);
+}
+
+/* ===== Excel 表格预览 ===== */
+.excel-preview {
+  overflow: auto;
+  max-height: 65vh;
+}
+
+.sheet-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.sheet-tab-btn {
+  padding: 6px 16px;
+  border: 1px solid var(--border-color, #dcdfe6);
+  border-radius: 6px;
+  background: var(--bg-input, #f7f8fa);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.sheet-tab-btn:hover { color: #165DFF; border-color: #c5d8ff; }
+.sheet-tab-btn.active {
+  background: #165DFF;
+  color: white;
+  border-color: #165DFF;
+  font-weight: 600;
+}
+
+.sheet-name {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.table-wrapper {
+  overflow: auto;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+}
+
+.excel-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.excel-table th,
+.excel-table td {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  text-align: left;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.excel-table thead th {
+  background: #f0f5ff;
+  color: #165DFF;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.excel-table tbody tr:hover {
+  background: #f7f8fa;
+}
+
+.excel-table tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.excel-table tbody tr:nth-child(even):hover {
+  background: #f0f5ff;
+}
+
+.row-num-header,
+.row-num {
+  width: 40px;
+  text-align: center;
+  color: var(--text-tertiary, #999);
+  background: #fafbfc;
+  font-size: 12px;
+}
 </style>

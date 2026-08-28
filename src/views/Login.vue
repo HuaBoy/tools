@@ -3,7 +3,6 @@ import { ref, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { isSupabaseReady } from '@/utils/supabase';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -11,13 +10,6 @@ const router = useRouter();
 const username = ref('admin');
 const password = ref('800228');
 const isLoading = ref(false);
-
-// 注册相关
-const showRegister = ref(false);
-const registerUsername = ref('');
-const registerEmail = ref('');
-const registerPassword = ref('');
-const isRegistering = ref(false);
 
 onMounted(async () => {
   await authStore.loadAuthState();
@@ -61,47 +53,6 @@ const handleLogin = async () => {
     ElMessage.error(msg);
   }
 };
-
-const handleRegister = async () => {
-  if (!registerUsername.value.trim()) {
-    ElMessage.warning('请输入用户名');
-    return;
-  }
-  if (!registerEmail.value.trim()) {
-    ElMessage.warning('请输入邮箱');
-    return;
-  }
-  if (!registerPassword.value.trim()) {
-    ElMessage.warning('请输入密码');
-    return;
-  }
-
-  isRegistering.value = true;
-
-  try {
-    console.log('[Register] 开始注册流程:', { username: registerUsername.value, email: registerEmail.value });
-    const success = await authStore.register(registerEmail.value.trim(), registerPassword.value.trim(), registerUsername.value.trim());
-    
-    if (success) {
-      ElMessage.success('注册成功，请登录');
-      showRegister.value = false;
-      username.value = registerEmail.value;
-      registerUsername.value = '';
-      registerEmail.value = '';
-      registerPassword.value = '';
-    } else {
-      ElMessage.error('注册失败，请重试');
-    }
-  } catch (error) {
-    console.error('[Register] 注册异常:', error);
-    const msg = (error?.message || '').includes('Failed to fetch')
-      ? '网络请求失败，请检查网络或 Supabase 配置'
-      : '注册失败：' + (error?.message || '未知错误');
-    ElMessage.error(msg);
-  } finally {
-    isRegistering.value = false;
-  }
-};
 </script>
 
 <template>
@@ -109,11 +60,7 @@ const handleRegister = async () => {
     <div class="login-card">
       <div class="login-header">
         <div class="logo">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" />
-            <path d="M2 17l10 5 10-5" />
-            <path d="M2 12l10 5 10-5" />
-          </svg>
+          <img src="/logo.png" alt="Holyview 盛景" class="logo-img" />
         </div>
         <h1 class="title">AI起爆一体化工具集</h1>
         <p class="subtitle">请登录系统</p>
@@ -151,44 +98,6 @@ const handleRegister = async () => {
         <p>默认管理员：<strong>admin / 800228</strong></p>
         <p>账号登录后，2天无操作将自动退出</p>
       </div>
-      
-      <div v-if="isSupabaseReady" class="register-section">
-        <p>还没有账号？<button class="register-btn" @click="showRegister = !showRegister">{{ showRegister ? '收起' : '立即注册' }}</button></p>
-        
-        <div v-if="showRegister" class="register-form">
-          <div class="form-group">
-            <label class="form-label">用户名</label>
-            <input 
-              v-model="registerUsername"
-              type="text" 
-              class="form-input"
-              placeholder="请输入用户名"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label">邮箱</label>
-            <input 
-              v-model="registerEmail"
-              type="email" 
-              class="form-input"
-              placeholder="请输入邮箱"
-            />
-          </div>
-          <div class="form-group">
-            <label class="form-label">密码</label>
-            <input 
-              v-model="registerPassword"
-              type="password" 
-              class="form-input"
-              placeholder="请输入密码"
-            />
-          </div>
-          <button type="button" class="register-submit-btn" @click="handleRegister" :disabled="isRegistering">
-            <span v-if="isRegistering">注册中...</span>
-            <span v-else>注册</span>
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 </template>
@@ -218,8 +127,13 @@ const handleRegister = async () => {
 }
 
 .logo {
-  color: #165DFF;
   margin-bottom: 16px;
+}
+
+.logo-img {
+  height: 80px;
+  width: auto;
+  object-fit: contain;
 }
 
 .title {
@@ -305,60 +219,5 @@ const handleRegister = async () => {
   margin: 4px 0;
 }
 
-.register-section {
-  text-align: center;
-  padding-top: 16px;
-  border-top: 1px solid rgba(22, 93, 255, 0.1);
-  margin-top: 16px;
-}
 
-.register-section p {
-  font-size: 13px;
-  color: #64748B;
-  margin: 0;
-}
-
-.register-btn {
-  background: none;
-  border: none;
-  color: #165DFF;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  text-decoration: underline;
-  transition: color 0.2s;
-  
-  &:hover {
-    color: #0F4CD0;
-  }
-}
-
-.register-form {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px dashed rgba(22, 93, 255, 0.15);
-}
-
-.register-submit-btn {
-  width: 100%;
-  padding: 14px;
-  background: linear-gradient(135deg, #00B42A 0%, #00A627 100%);
-  border: none;
-  border-radius: 10px;
-  color: #FFFFFF;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  
-  &:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 180, 42, 0.3);
-  }
-  
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-}
 </style>

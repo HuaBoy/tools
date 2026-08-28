@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => {
   },
   server: {
     host: '0.0.0.0',
-    port: 3000,
+    port: 5173,
     open: false,
     proxy: {
       '/socket.io': {
@@ -37,9 +37,7 @@ export default defineConfig(({ mode }) => {
         changeOrigin: true,
         secure: false,
         ws: false,
-        proxyTimeout: 600000,
-        // 覆盖 Origin 为白名单内地址，避免后端 CORS 对 localhost:3000 返回 403（本地开发用）
-        headers: { Origin: 'http://111.231.16.110' }
+        proxyTimeout: 600000
       },
       // 盛景平台登录（第三方 holyview），需保留，且必须在 /api 之前匹配
       '/api/blade-auth': {
@@ -63,8 +61,7 @@ export default defineConfig(({ mode }) => {
         target: apiTarget,
         changeOrigin: true,
         secure: false,
-        ws: false,
-        headers: { Origin: 'http://111.231.16.110' }
+        ws: false
       },
       '/smart-api': {
         target: 'http://218.90.146.230:20001',

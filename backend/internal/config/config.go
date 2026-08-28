@@ -21,10 +21,11 @@ type Config struct {
 
 // OllamaConfig Ollama 配置
 type OllamaConfig struct {
-	URL           string // Ollama 服务地址
+	URL            string // Ollama 服务地址
 	EmbeddingModel string // 嵌入模型
-	ChatModel     string // 对话模型
-	StoreDir      string // 文档存储目录
+	ChatModel      string // 对话模型
+	StoreDir       string // 文档存储目录
+	RAGServiceURL  string // LlamaIndex Python RAG 服务地址
 }
 
 // ServerConfig 服务配置
@@ -98,6 +99,7 @@ func Load() error {
 			EmbeddingModel: getEnv("OLLAMA_EMBEDDING_MODEL", "bge-m3"),
 			ChatModel:      getEnv("OLLAMA_CHAT_MODEL", "deepseek-r1:7b"),
 			StoreDir:       getEnv("KNOWLEDGE_STORE_DIR", "./data/knowledge"),
+			RAGServiceURL:  getEnv("RAG_SERVICE_URL", "http://127.0.0.1:8001"),
 		},
 	}
 

@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+llama-index-core>=0.12.0
+llama-index-readers-file>=0.4.0
+psycopg[binary]>=3.2.0
+psycopg_pool
+httpx
+python-dotenv
+openpyxl

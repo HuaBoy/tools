@@ -55,9 +55,10 @@ export const api = {
   put: (u, d, c) => http.put(u, d, c),
   patch: (u, d, c) => http.patch(u, d, c),
   del: (u, c) => http.delete(u, c),
-  upload: (u, fd, onP) => http.post(u, fd, {
+  upload: (u, fd, onP, c) => http.post(u, fd, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    onUploadProgress: onP
+    onUploadProgress: onP,
+    ...c
   })
 }
 

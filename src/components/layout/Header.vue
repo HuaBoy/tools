@@ -86,11 +86,7 @@ const handleLogout = async () => {
         </svg>
       </button>
       <div class="logo">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2L2 7l10 5 10-5-10-5z" />
-          <path d="M2 17l10 5 10-5" />
-          <path d="M2 12l10 5 10-5" />
-        </svg>
+        <img src="/favicon.png" alt="Holyview" class="logo-img" />
       </div>
       <span class="app-title">AI起爆一体化工具集</span>
     </div>
@@ -170,7 +166,14 @@ const handleLogout = async () => {
 }
 
 .logo {
-  color: #165DFF;
+  display: flex;
+  align-items: center;
+}
+
+.logo-img {
+  height: 28px;
+  width: auto;
+  object-fit: contain;
 }
 
 .app-title {

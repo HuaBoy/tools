@@ -11,23 +11,23 @@ import (
 // JWTAuth JWT 认证中间件
 func JWTAuth(jwtManager *jwt.Manager) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 从 Header 获取 token
+		// 从 Header 获取 token，若无则尝试 query 参数（用于图片/文件访问）
+		tokenString := ""
 		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
+		if authHeader != "" {
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenString = parts[1]
+			}
+		}
+		if tokenString == "" {
+			tokenString = c.Query("token")
+		}
+		if tokenString == "" {
 			response.Unauthorized(c, "请先登录")
 			c.Abort()
 			return
 		}
-
-		// 解析 Bearer token
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			response.Unauthorized(c, "无效的 Authorization 头")
-			c.Abort()
-			return
-		}
-
-		tokenString := parts[1]
 		claims, err := jwtManager.Parse(tokenString)
 		if err != nil {
 			response.Unauthorized(c, "Token 已过期或无效")

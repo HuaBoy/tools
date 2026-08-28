@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/tester-platform/backend/internal/knowledge"
@@ -217,4 +218,135 @@ func (h *KnowledgeHandler) DeleteFAQ(c *gin.Context) {
 		return
 	}
 	response.SuccessWithMessage(c, "删除成功", nil)
+}
+
+// GetContent 获取文档文本内容（用于在线编辑）
+func (h *KnowledgeHandler) GetContent(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	content, err := h.Service.GetDocumentContent(c.Request.Context(), id)
+	if err != nil {
+		response.NotFound(c, err.Error())
+		return
+	}
+	response.Success(c, gin.H{
+		"id":      id,
+		"content": content,
+	})
+}
+
+// UpdateContent 更新文档文本内容（保存后重新分块向量化）
+func (h *KnowledgeHandler) UpdateContent(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	var req struct {
+		Content string `json:"content" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "请提供文档内容")
+		return
+	}
+	if err := h.Service.UpdateDocumentContent(c.Request.Context(), id, req.Content); err != nil {
+		response.ServerError(c, "更新失败: "+err.Error())
+		return
+	}
+	response.SuccessWithMessage(c, "文档已更新并重新向量化", nil)
+}
+
+// UploadImage 上传图片（存储文件并记录，不进行向量化）
+func (h *KnowledgeHandler) UploadImage(c *gin.Context) {
+	file, header, err := c.Request.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "请选择要上传的图片")
+		return
+	}
+	defer file.Close()
+
+	// 限制文件大小 10MB
+	if header.Size > 10*1024*1024 {
+		response.BadRequest(c, "图片过大，最大支持 10MB")
+		return
+	}
+
+	data, err := io.ReadAll(file)
+	if err != nil {
+		response.ServerError(c, "读取图片失败: "+err.Error())
+		return
+	}
+
+	// 校验图片类型
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	imageTypes := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".bmp": true, ".svg": true}
+	if !imageTypes[ext] {
+		response.BadRequest(c, "不支持的图片格式，支持: jpg/png/gif/webp/bmp/svg")
+		return
+	}
+
+	title := c.PostForm("title")
+	description := c.PostForm("description")
+	category := c.PostForm("category")
+	if title == "" {
+		title = header.Filename
+	}
+	if category == "" {
+		category = "image"
+	}
+
+	// 保存文件
+	storagePath := h.Service.GetStoragePath(header.Filename)
+	if err := os.MkdirAll(filepath.Dir(storagePath), 0755); err != nil {
+		response.ServerError(c, "创建存储目录失败: "+err.Error())
+		return
+	}
+	if err := os.WriteFile(storagePath, data, 0644); err != nil {
+		response.ServerError(c, "保存图片失败: "+err.Error())
+		return
+	}
+
+	userID, _ := c.Get("username")
+	doc := &knowledge.Document{
+		Title:    title,
+		Category: category,
+		FileName: header.Filename,
+		FileType: ext,
+		FileSize: header.Size,
+		CreatedBy: userID.(string),
+	}
+
+	if err := h.Service.SaveImage(c.Request.Context(), doc, storagePath, description); err != nil {
+		_ = os.Remove(storagePath)
+		response.ServerError(c, "保存图片记录失败: "+err.Error())
+		return
+	}
+
+	response.SuccessWithMessage(c, "图片上传成功", doc)
+}
+
+// ServeFile 提供文档/图片文件访问
+func (h *KnowledgeHandler) ServeFile(c *gin.Context) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	doc, err := h.Service.GetDocument(c.Request.Context(), id)
+	if err != nil {
+		response.NotFound(c, "文档不存在")
+		return
+	}
+	if doc.StoragePath == "" {
+		response.NotFound(c, "文件不存在")
+		return
+	}
+	// 根据文件扩展名设置 Content-Type
+	ext := strings.ToLower(doc.FileType)
+	mimeTypes := map[string]string{
+		".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+		".gif": "image/gif", ".webp": "image/webp", ".bmp": "image/bmp",
+		".svg": "image/svg+xml",
+		".txt": "text/plain", ".md": "text/markdown", ".markdown": "text/markdown",
+		".json": "application/json", ".csv": "text/csv", ".log": "text/plain",
+		".pdf": "application/pdf",
+		".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+		".xls": "application/vnd.ms-excel",
+	}
+	if mime, ok := mimeTypes[ext]; ok {
+		c.Header("Content-Type", mime)
+	}
+	c.File(doc.StoragePath)
 }

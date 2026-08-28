@@ -31,17 +31,6 @@ const menuGroups = [
     ]
   },
   {
-    name: '销售岗',
-    icon: 'trending-up',
-    children: [
-      { name: '行业洞察', path: '/sales', icon: 'trending-up' },
-      { name: '全国总量', path: '/sales', query: 'national', icon: 'bar-chart-2' },
-      { name: '区域分布', path: '/sales', query: 'regional', icon: 'map-pin' },
-      { name: 'CR20集中度', path: '/sales', query: 'cr20', icon: 'pie-chart' },
-      { name: '行业动态', path: '/sales', query: 'news', icon: 'newspaper' }
-    ]
-  },
-  {
     name: '自动化任务',
     icon: 'zap',
     children: [
