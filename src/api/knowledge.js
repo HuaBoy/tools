@@ -24,13 +24,13 @@ export async function getDocument(id) {
   return resp.data
 }
 
-export async function uploadDocument(file, meta = {}) {
+export async function uploadDocument(file, meta = {}, onProgress) {
   const fd = new FormData()
   fd.append('file', file)
   if (meta.title) fd.append('title', meta.title)
   if (meta.category) fd.append('category', meta.category)
   if (meta.description) fd.append('description', meta.description)
-  const resp = await api.upload(`${BASE}/documents/upload`, fd, null, { timeout: 600000 })
+  const resp = await api.upload(`${BASE}/documents/upload`, fd, onProgress, { timeout: 600000 })
   return resp.data
 }
 

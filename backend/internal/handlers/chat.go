@@ -30,6 +30,7 @@ func (h *ChatHandler) Send(c *gin.Context) {
 		Question       string `json:"question" binding:"required"`
 		ConversationID int64  `json:"conversation_id"`
 		Stream         bool   `json:"stream"`
+		Mode           string `json:"mode"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "请输入问题")
@@ -55,20 +56,7 @@ func (h *ChatHandler) Send(c *gin.Context) {
 
 	// 3. 构建消息
 	messages := []ollama.ChatMessage{}
-	systemPrompt := `你是一个企业内部的智能知识助手，请基于提供的参考资料回答用户问题。
-
-回答要求：
-1. 优先使用参考资料中的内容回答，不要编造
-2. 如果参考资料不足以回答，如实说明
-3. 使用简洁、清晰的中文回答
-4. 可以列出操作步骤
-
-参考资料：
-` + (contextText)
-
-	if contextText == "" {
-		systemPrompt = "你是一个企业内部智能知识助手，请用简洁中文回答用户问题。"
-	}
+	systemPrompt := buildSystemPrompt(req.Mode, contextText)
 
 	messages = append(messages, ollama.ChatMessage{Role: "system", Content: systemPrompt})
 
@@ -147,8 +135,9 @@ func (h *ChatHandler) Send(c *gin.Context) {
 		_ = h.Service.SaveMessage(ctx, convID, "assistant", answer.String(), sources)
 
 		done, _ := json.Marshal(map[string]interface{}{
-			"type":   "done",
-			"answer": answer.String(),
+			"type":    "done",
+			"answer":  answer.String(),
+			"sources": sources,
 		})
 		writeSSE(c, done)
 		return
@@ -214,4 +203,40 @@ func writeSSE(c *gin.Context, data []byte) error {
 	}
 	c.Writer.Flush()
 	return nil
+}
+
+// buildSystemPrompt 根据模式构建系统提示词
+// mode 为空或 "knowledge" → 企业内部知识助手；"customer_service" → 面向终端用户的智能客服
+func buildSystemPrompt(mode, contextText string) string {
+	if mode == "customer_service" {
+		if contextText == "" {
+			return "你是我们产品的智能客服助手，面向终端用户提供支持。请用友好、耐心、专业的中文回答用户问题；" +
+				"若参考资料不足，请如实说明并建议联系人工客服。"
+		}
+		return `你是我们产品的智能客服助手，面向终端用户提供支持。请基于提供的参考资料，用友好、耐心、专业的中文回答客户问题。
+
+回答要求：
+1. 优先使用参考资料中的内容回答，不要编造
+2. 如资料不足以回答，如实说明并建议联系人工客服
+3. 使用清晰、易懂的语言，必要时给出操作步骤
+4. 态度亲切，体现服务意识
+
+参考资料：
+` + contextText
+	}
+
+	// 默认：企业内部知识助手
+	if contextText == "" {
+		return "你是一个企业内部智能知识助手，请用简洁中文回答用户问题。"
+	}
+	return `你是一个企业内部的智能知识助手，请基于提供的参考资料回答用户问题。
+
+回答要求：
+1. 优先使用参考资料中的内容回答，不要编造
+2. 如果参考资料不足以回答，如实说明
+3. 使用简洁、清晰的中文回答
+4. 可以列出操作步骤
+
+参考资料：
+` + contextText
 }

@@ -55,11 +55,18 @@ export const api = {
   put: (u, d, c) => http.put(u, d, c),
   patch: (u, d, c) => http.patch(u, d, c),
   del: (u, c) => http.delete(u, c),
-  upload: (u, fd, onP, c) => http.post(u, fd, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-    onUploadProgress: onP,
-    ...c
-  })
+  // 上传 FormData：不要手动指定 Content-Type，否则会缺失 boundary 导致
+  // 服务端/代理解析 multipart 失败或挂起（表现为页面卡死）。
+  // 由浏览器在发送 FormData 时自动补上 'multipart/form-data; boundary=...'
+  upload: (u, fd, onP, c) => {
+    const cfg = { ...c }
+    if (!cfg.headers) cfg.headers = {}
+    delete cfg.headers['Content-Type']
+    return http.post(u, fd, {
+      onUploadProgress: onP,
+      ...cfg
+    })
+  }
 }
 
 export default http

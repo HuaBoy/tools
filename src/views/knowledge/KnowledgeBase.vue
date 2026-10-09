@@ -32,6 +32,7 @@ const docPage = ref(1);
 const docPageSize = ref(12);
 const docCategory = ref('all');
 const uploading = ref(false);
+const uploadProgress = ref(0);
 const uploadDialog = ref(false);
 const uploadForm = reactive({ title: '', category: 'other', description: '' });
 const uploadFile = ref(null);
@@ -89,12 +90,21 @@ const handleUpload = async () => {
   }
 
   uploading.value = true;
+  uploadProgress.value = 0;
   try {
-    const doc = await uploadDocument(uploadFile.value, {
-      title: uploadForm.title || uploadFile.value.name,
-      category: uploadForm.category,
-      description: uploadForm.description
-    });
+    const doc = await uploadDocument(
+      uploadFile.value,
+      {
+        title: uploadForm.title || uploadFile.value.name,
+        category: uploadForm.category,
+        description: uploadForm.description
+      },
+      (e) => {
+        if (e.lengthComputable && e.total) {
+          uploadProgress.value = Math.round((e.loaded / e.total) * 100);
+        }
+      }
+    );
     ElMessage.success(`文档「${doc.title}」上传成功，生成 ${doc.chunk_count} 个知识分块`);
     logsStore.addLog('上传', '知识库', `上传文档: ${doc.title}`);
     uploadDialog.value = false;
@@ -108,6 +118,7 @@ const handleUpload = async () => {
     ElMessage.error('上传失败：' + (e.message || ''));
   } finally {
     uploading.value = false;
+    uploadProgress.value = 0;
   }
 };
 
@@ -687,9 +698,9 @@ onMounted(() => {
           </div>
         </div>
         <div class="modal-footer">
-          <button class="cancel-btn" @click="uploadDialog = false">取消</button>
+          <button class="cancel-btn" @click="uploadDialog = false" :disabled="uploading">取消</button>
           <button class="submit-btn" @click="handleUpload" :disabled="uploading">
-            {{ uploading ? '上传并向量化中...' : '上传入库' }}
+            {{ uploading ? ('上传并向量化中 ' + uploadProgress + '%') : '上传入库' }}
           </button>
         </div>
       </div>

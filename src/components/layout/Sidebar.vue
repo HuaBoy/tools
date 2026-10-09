@@ -53,6 +53,7 @@ const menuGroups = [
     icon: 'book',
     children: [
       { name: 'AI 智能问答', path: '/knowledge/ai-chat', icon: 'bot', highlight: true },
+      { name: '客服问答', path: '/knowledge/customer-service', icon: 'headset', highlight: true },
       { name: '知识库管理', path: '/knowledge/base', icon: 'database', highlight: true },
       { name: '智能知识库(RAG)', path: '/knowledge/rag', icon: 'brain' },
       { name: '起爆器版本手册', path: '/knowledge/manual', icon: 'book-open' },
@@ -209,6 +210,7 @@ onUnmounted(() => { window.removeEventListener('resize', checkMobile) })
                 <svg v-else-if="item.icon === 'send'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 <svg v-else-if="item.icon === 'upload-cloud'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/><polyline points="16 16 12 12 8 16"/></svg>
                 <svg v-else-if="item.icon === 'database'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+                <svg v-else-if="item.icon === 'headset'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
                 <svg v-else-if="item.icon === 'factory'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M7 18h1"/><path d="M12 18h1"/><path d="M17 18h1"/></svg>
                 <svg v-else-if="item.icon === 'trending-up'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                 <svg v-else-if="item.icon === 'bar-chart-2'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>

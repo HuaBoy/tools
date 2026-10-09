@@ -109,6 +109,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/knowledge/customer-service',
+    name: 'CustomerService',
+    component: () => import('@/views/knowledge/CustomerService.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/tools/translate',
     name: 'AiTranslate',
     component: () => import('@/views/tools/AiTranslate.vue'),
